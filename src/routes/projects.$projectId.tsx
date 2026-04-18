@@ -6,6 +6,7 @@ import {
 	CheckCircle2Icon,
 	ChevronRightIcon,
 	CircleIcon,
+	CopyIcon,
 	Loader2Icon,
 	MoreVerticalIcon,
 	PencilIcon,
@@ -341,6 +342,15 @@ function TodoRow({ todo }: { todo: Todo }) {
 		}
 	}
 
+	async function copyDescription() {
+		try {
+			await navigator.clipboard.writeText(todo.description);
+			toast.success("Description copied");
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : "Failed to copy");
+		}
+	}
+
 	return (
 		<div className="group flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/30">
 			<button
@@ -359,23 +369,42 @@ function TodoRow({ todo }: { todo: Todo }) {
 			>
 				{STATUS_META[todo.status].icon}
 			</button>
-			<button
-				type="button"
-				onClick={() => setEditOpen(true)}
-				className="flex-1 min-w-0 text-left"
-			>
-				<div
-					className={cn(
-						"font-medium leading-snug",
-						todo.status === "done" &&
-							"line-through text-muted-foreground decoration-muted-foreground/50",
-					)}
+			<div className="flex-1 min-w-0">
+				<button
+					type="button"
+					onClick={() => setEditOpen(true)}
+					className="block w-full text-left"
 				>
-					{todo.title}
-				</div>
+					<div
+						className={cn(
+							"font-medium leading-snug",
+							todo.status === "done" &&
+								"line-through text-muted-foreground decoration-muted-foreground/50",
+						)}
+					>
+						{todo.title}
+					</div>
+				</button>
 				{todo.description && (
-					<div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
-						{todo.description}
+					<div className="mt-0.5 flex flex-col items-start gap-1">
+						<button
+							type="button"
+							onClick={() => setEditOpen(true)}
+							className="w-full text-left text-xs text-muted-foreground line-clamp-1"
+						>
+							{todo.description}
+						</button>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							onClick={() => void copyDescription()}
+							className="h-6 w-6 text-muted-foreground hover:text-foreground"
+							aria-label="Copy description"
+							title="Copy description"
+						>
+							<CopyIcon className="h-3.5 w-3.5" />
+						</Button>
 					</div>
 				)}
 				<div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -383,7 +412,7 @@ function TodoRow({ todo }: { todo: Todo }) {
 					<span>·</span>
 					<span>Updated {formatRelativeTime(todo._creationTime)}</span>
 				</div>
-			</button>
+			</div>
 			<div className="flex items-center gap-2">
 				<Select
 					value={todo.priority}
