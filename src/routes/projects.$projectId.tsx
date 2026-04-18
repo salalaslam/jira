@@ -465,6 +465,10 @@ function CreateTodoDialog({
 		try {
 			await create({ token, projectId, title, description, status, priority });
 			toast.success("Todo created");
+			setTitle("");
+			setDescription("");
+			setStatus("todo");
+			setPriority("medium");
 			onClose();
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : "Failed");
