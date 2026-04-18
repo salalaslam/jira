@@ -27,7 +27,7 @@ export const login = mutation({
 			throw new Error("Invalid credentials");
 		}
 
-		const ok = await bcrypt.compare(password, user.passwordHash);
+		const ok = bcrypt.compareSync(password, user.passwordHash);
 		if (!ok) {
 			throw new Error("Invalid credentials");
 		}
@@ -107,7 +107,7 @@ export const seedUsers = mutation({
 				.withIndex("by_username", (q) => q.eq("username", normalized))
 				.first();
 
-			const passwordHash = await bcrypt.hash(u.password, 10);
+			const passwordHash = bcrypt.hashSync(u.password, 10);
 
 			if (existing) {
 				await ctx.db.patch(existing._id, {
@@ -139,14 +139,14 @@ export const changePassword = mutation({
 		const fullUser = await ctx.db.get(user._id);
 		if (!fullUser) throw new Error("User missing");
 
-		const ok = await bcrypt.compare(currentPassword, fullUser.passwordHash);
+		const ok = bcrypt.compareSync(currentPassword, fullUser.passwordHash);
 		if (!ok) throw new Error("Current password is incorrect");
 
 		if (newPassword.length < 6) {
 			throw new Error("New password must be at least 6 characters");
 		}
 
-		const passwordHash = await bcrypt.hash(newPassword, 10);
+		const passwordHash = bcrypt.hashSync(newPassword, 10);
 		await ctx.db.patch(user._id, { passwordHash });
 		return { success: true };
 	},
