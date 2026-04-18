@@ -1,6 +1,21 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { ArchiveIcon, FolderIcon, LogOutIcon } from "lucide-react";
+import {
+	ArchiveIcon,
+	FolderIcon,
+	KeyRoundIcon,
+	LogOutIcon,
+} from "lucide-react";
+import * as React from "react";
+import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "#/components/ui/dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -9,12 +24,15 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
+import { Input } from "#/components/ui/input";
+import { Label } from "#/components/ui/label";
 import { useSession } from "#/lib/session";
 import { cn } from "#/lib/utils";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
 	const { user, logout } = useSession();
 	const location = useLocation();
+	const [passwordDialogOpen, setPasswordDialogOpen] = React.useState(false);
 
 	const nav = [
 		{ to: "/", label: "Projects", icon: FolderIcon },
@@ -59,41 +77,165 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 					<div className="ml-auto">
 						{user && (
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<Button variant="ghost" size="sm" className="gap-2">
-										<div className="grid h-6 w-6 place-items-center rounded-full bg-secondary text-xs font-semibold">
-											{user.displayName.charAt(0).toUpperCase()}
-										</div>
-										<span>{user.displayName}</span>
-									</Button>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent align="end" className="w-48">
-									<DropdownMenuLabel className="font-normal">
-										<div className="flex flex-col">
-											<span className="font-medium">{user.displayName}</span>
-											<span className="text-xs text-muted-foreground">
-												@{user.username}
-											</span>
-										</div>
-									</DropdownMenuLabel>
-									<DropdownMenuSeparator />
-									<DropdownMenuItem
-										onClick={() => {
-											void logout();
-										}}
-										className="text-destructive focus:text-destructive"
-									>
-										<LogOutIcon className="h-4 w-4" />
-										Sign out
-									</DropdownMenuItem>
-								</DropdownMenuContent>
-							</DropdownMenu>
+							<>
+								<DropdownMenu>
+									<DropdownMenuTrigger asChild>
+										<Button variant="ghost" size="sm" className="gap-2">
+											<div className="grid h-6 w-6 place-items-center rounded-full bg-secondary text-xs font-semibold">
+												{user.displayName.charAt(0).toUpperCase()}
+											</div>
+											<span>{user.displayName}</span>
+										</Button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent align="end" className="w-48">
+										<DropdownMenuLabel className="font-normal">
+											<div className="flex flex-col">
+												<span className="font-medium">{user.displayName}</span>
+												<span className="text-xs text-muted-foreground">
+													@{user.username}
+												</span>
+											</div>
+										</DropdownMenuLabel>
+										<DropdownMenuSeparator />
+										<DropdownMenuItem
+											onSelect={() => {
+												setPasswordDialogOpen(true);
+											}}
+										>
+											<KeyRoundIcon className="h-4 w-4" />
+											Change password
+										</DropdownMenuItem>
+										<DropdownMenuSeparator />
+										<DropdownMenuItem
+											onClick={() => {
+												void logout();
+											}}
+											className="text-destructive focus:text-destructive"
+										>
+											<LogOutIcon className="h-4 w-4" />
+											Sign out
+										</DropdownMenuItem>
+									</DropdownMenuContent>
+								</DropdownMenu>
+								<ChangePasswordDialog
+									open={passwordDialogOpen}
+									onOpenChange={setPasswordDialogOpen}
+								/>
+							</>
 						)}
 					</div>
 				</div>
 			</header>
 			<main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
 		</div>
+	);
+}
+
+function ChangePasswordDialog({
+	open,
+	onOpenChange,
+}: {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+}) {
+	const { changePassword } = useSession();
+	const [currentPassword, setCurrentPassword] = React.useState("");
+	const [newPassword, setNewPassword] = React.useState("");
+	const [confirmPassword, setConfirmPassword] = React.useState("");
+	const [submitting, setSubmitting] = React.useState(false);
+
+	React.useEffect(() => {
+		if (!open) {
+			setCurrentPassword("");
+			setNewPassword("");
+			setConfirmPassword("");
+			setSubmitting(false);
+		}
+	}, [open]);
+
+	async function onSubmit(e: React.FormEvent) {
+		e.preventDefault();
+
+		if (newPassword !== confirmPassword) {
+			toast.error("New passwords do not match");
+			return;
+		}
+
+		setSubmitting(true);
+		try {
+			await changePassword(currentPassword, newPassword);
+			toast.success("Password changed");
+			onOpenChange(false);
+		} catch (err) {
+			toast.error(
+				err instanceof Error ? err.message : "Could not change password",
+			);
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent className="sm:max-w-md">
+				<DialogHeader>
+					<DialogTitle>Change password</DialogTitle>
+					<DialogDescription>
+						Use your current password to set a new one.
+					</DialogDescription>
+				</DialogHeader>
+				<form onSubmit={onSubmit} className="flex flex-col gap-4">
+					<div className="flex flex-col gap-2">
+						<Label htmlFor="current-password">Current password</Label>
+						<Input
+							id="current-password"
+							type="password"
+							value={currentPassword}
+							onChange={(e) => setCurrentPassword(e.target.value)}
+							autoComplete="current-password"
+							required
+							autoFocus
+						/>
+					</div>
+					<div className="flex flex-col gap-2">
+						<Label htmlFor="new-password">New password</Label>
+						<Input
+							id="new-password"
+							type="password"
+							value={newPassword}
+							onChange={(e) => setNewPassword(e.target.value)}
+							autoComplete="new-password"
+							minLength={6}
+							required
+						/>
+					</div>
+					<div className="flex flex-col gap-2">
+						<Label htmlFor="confirm-password">Confirm new password</Label>
+						<Input
+							id="confirm-password"
+							type="password"
+							value={confirmPassword}
+							onChange={(e) => setConfirmPassword(e.target.value)}
+							autoComplete="new-password"
+							minLength={6}
+							required
+						/>
+					</div>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => onOpenChange(false)}
+							disabled={submitting}
+						>
+							Cancel
+						</Button>
+						<Button type="submit" disabled={submitting}>
+							{submitting ? "Changing..." : "Change password"}
+						</Button>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
 	);
 }

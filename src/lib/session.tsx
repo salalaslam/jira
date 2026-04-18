@@ -16,6 +16,10 @@ type SessionContextValue = {
 	isLoading: boolean;
 	login: (username: string, password: string) => Promise<void>;
 	logout: () => Promise<void>;
+	changePassword: (
+		currentPassword: string,
+		newPassword: string,
+	) => Promise<void>;
 };
 
 const SessionContext = React.createContext<SessionContextValue | null>(null);
@@ -38,6 +42,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
 	const loginMut = useMutation(api.auth.login);
 	const logoutMut = useMutation(api.auth.logout);
+	const changePasswordMut = useMutation(api.auth.changePassword);
 	const convex = useConvex();
 
 	const login = React.useCallback(
@@ -62,6 +67,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 		await convex.close();
 	}, [logoutMut, token, convex]);
 
+	const changePassword = React.useCallback(
+		async (currentPassword: string, newPassword: string) => {
+			if (!token) {
+				throw new Error("No active session");
+			}
+
+			await changePasswordMut({ token, currentPassword, newPassword });
+		},
+		[changePasswordMut, token],
+	);
+
 	const isLoading = !hydrated || (token !== null && user === undefined);
 
 	const value = React.useMemo<SessionContextValue>(
@@ -71,8 +87,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 			isLoading,
 			login,
 			logout,
+			changePassword,
 		}),
-		[token, user, isLoading, login, logout],
+		[token, user, isLoading, login, logout, changePassword],
 	);
 
 	return (
