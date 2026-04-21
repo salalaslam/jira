@@ -10,6 +10,7 @@ import {
 	PlusIcon,
 	SearchIcon,
 	TimerIcon,
+	ZapIcon,
 } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
@@ -32,6 +33,13 @@ import {
 } from "#/components/ui/dropdown-menu";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "#/components/ui/select";
 import { useSession } from "#/lib/session";
 import { cn, formatRelativeTime } from "#/lib/utils";
 import { api } from "../../convex/_generated/api";
@@ -161,6 +169,7 @@ function ProjectCard({
 	const { token } = useSession();
 	const archive = useMutation(api.projects.archive);
 	const [editOpen, setEditOpen] = React.useState(false);
+	const [quickAddOpen, setQuickAddOpen] = React.useState(false);
 
 	const { counts } = project;
 
@@ -185,37 +194,56 @@ function ProjectCard({
 						</div>
 					</div>
 				</Link>
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button
-							variant="ghost"
-							size="icon"
-							className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
-						>
-							<MoreVerticalIcon className="h-4 w-4" />
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						<DropdownMenuItem onClick={() => setEditOpen(true)}>
-							<PencilIcon className="h-4 w-4" />
-							Rename
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							onClick={async () => {
-								if (!token) return;
-								try {
-									await archive({ token, projectId: project._id });
-									toast.success("Project archived");
-								} catch (e) {
-									toast.error(e instanceof Error ? e.message : "Failed");
-								}
-							}}
-						>
-							<ArchiveIcon className="h-4 w-4" />
-							Archive
-						</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
+				<div className="flex items-center gap-0.5">
+					<Dialog open={quickAddOpen} onOpenChange={setQuickAddOpen}>
+						<DialogTrigger asChild>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+								title="Quick add task"
+								aria-label="Quick add task"
+							>
+								<ZapIcon className="h-4 w-4" />
+							</Button>
+						</DialogTrigger>
+						<QuickAddTodoDialog
+							project={project}
+							onClose={() => setQuickAddOpen(false)}
+						/>
+					</Dialog>
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+							>
+								<MoreVerticalIcon className="h-4 w-4" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem onClick={() => setEditOpen(true)}>
+								<PencilIcon className="h-4 w-4" />
+								Rename
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								onClick={async () => {
+									if (!token) return;
+									try {
+										await archive({ token, projectId: project._id });
+										toast.success("Project archived");
+									} catch (e) {
+										toast.error(e instanceof Error ? e.message : "Failed");
+									}
+								}}
+							>
+								<ArchiveIcon className="h-4 w-4" />
+								Archive
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</div>
 			</div>
 
 			<Link
@@ -412,6 +440,107 @@ function EditProjectDialog({
 					<Button type="submit" disabled={submitting}>
 						{submitting && <Loader2Icon className="h-4 w-4 animate-spin" />}
 						Save
+					</Button>
+				</DialogFooter>
+			</form>
+		</DialogContent>
+	);
+}
+
+function QuickAddTodoDialog({
+	project,
+	onClose,
+}: {
+	project: { _id: Id<"projects">; name: string; color: string };
+	onClose: () => void;
+}) {
+	const { token } = useSession();
+	const create = useMutation(api.todos.create);
+	const [title, setTitle] = React.useState("");
+	const [priority, setPriority] = React.useState<"low" | "medium" | "high">(
+		"medium",
+	);
+	const [submitting, setSubmitting] = React.useState(false);
+
+	async function onSubmit(e: React.FormEvent) {
+		e.preventDefault();
+		if (!token) return;
+		setSubmitting(true);
+		try {
+			await create({
+				token,
+				projectId: project._id,
+				title,
+				status: "todo",
+				priority,
+			});
+			toast.success("Task added");
+			setTitle("");
+			setPriority("medium");
+			onClose();
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Failed");
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	return (
+		<DialogContent className="sm:max-w-md">
+			<DialogHeader>
+				<DialogTitle className="flex items-center gap-2">
+					<span
+						className={cn(
+							"h-4 w-1 rounded-full",
+							colorClassForProject(project.color),
+						)}
+					/>
+					Quick add to {project.name}
+				</DialogTitle>
+				<DialogDescription>
+					Add a task without leaving the projects list.
+				</DialogDescription>
+			</DialogHeader>
+			<form onSubmit={onSubmit} className="flex flex-col gap-4">
+				<div className="flex flex-col gap-2">
+					<Label htmlFor="quick-title">Title</Label>
+					<Input
+						id="quick-title"
+						value={title}
+						onChange={(e) => setTitle(e.target.value)}
+						autoFocus
+						placeholder="What needs to be done?"
+						required
+					/>
+				</div>
+				<div className="flex flex-col gap-2">
+					<Label>Priority</Label>
+					<Select
+						value={priority}
+						onValueChange={(v) => setPriority(v as typeof priority)}
+					>
+						<SelectTrigger>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="high">High</SelectItem>
+							<SelectItem value="medium">Medium</SelectItem>
+							<SelectItem value="low">Low</SelectItem>
+						</SelectContent>
+					</Select>
+				</div>
+				<DialogFooter>
+					<Button
+						type="button"
+						variant="ghost"
+						onClick={onClose}
+						disabled={submitting}
+					>
+						Cancel
+					</Button>
+					<Button type="submit" disabled={submitting || !title.trim()}>
+						{submitting && <Loader2Icon className="h-4 w-4 animate-spin" />}
+						Add task
 					</Button>
 				</DialogFooter>
 			</form>
