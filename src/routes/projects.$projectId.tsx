@@ -6,6 +6,7 @@ import {
 	CheckCircle2Icon,
 	ChevronRightIcon,
 	CircleIcon,
+	CopyIcon,
 	Loader2Icon,
 	MoreVerticalIcon,
 	PencilIcon,
@@ -341,6 +342,20 @@ function TodoRow({ todo }: { todo: Todo }) {
 		}
 	}
 
+	async function copyDescription() {
+		const text = todo.description?.trim();
+		if (!text) {
+			toast.error("No description to copy");
+			return;
+		}
+		try {
+			await navigator.clipboard.writeText(text);
+			toast.success("Description copied");
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : "Failed to copy");
+		}
+	}
+
 	return (
 		<div className="group flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/30">
 			<button
@@ -417,6 +432,13 @@ function TodoRow({ todo }: { todo: Todo }) {
 						<DropdownMenuItem onClick={() => setEditOpen(true)}>
 							<PencilIcon className="h-4 w-4" />
 							Edit
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							onClick={() => void copyDescription()}
+							disabled={!todo.description?.trim()}
+						>
+							<CopyIcon className="h-4 w-4" />
+							Copy description
 						</DropdownMenuItem>
 						<DropdownMenuItem
 							onClick={async () => {
