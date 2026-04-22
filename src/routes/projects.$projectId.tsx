@@ -359,37 +359,22 @@ function TodoRow({ todo }: { todo: Todo }) {
 
 	return (
 		<div className="group flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/30">
-			<div className="mt-0.5 flex shrink-0 items-center gap-0.5">
-				<button
-					type="button"
-					onClick={() => {
-						const next: Status =
-							todo.status === "todo"
-								? "in_progress"
-								: todo.status === "in_progress"
-									? "done"
-									: "todo";
-						void setStatus(next);
-					}}
-					className="shrink-0"
-					title="Cycle status"
-				>
-					{STATUS_META[todo.status].icon}
-				</button>
-				{todo.status !== "done" && (
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon"
-						className="h-7 w-7 text-muted-foreground hover:text-emerald-600"
-						title="Mark as done"
-						aria-label="Mark as done"
-						onClick={() => void setStatus("done")}
-					>
-						<CheckIcon className="h-4 w-4" />
-					</Button>
-				)}
-			</div>
+			<button
+				type="button"
+				onClick={() => {
+					const next: Status =
+						todo.status === "todo"
+							? "in_progress"
+							: todo.status === "in_progress"
+								? "done"
+								: "todo";
+					void setStatus(next);
+				}}
+				className="mt-0.5 shrink-0"
+				title="Cycle status"
+			>
+				{STATUS_META[todo.status].icon}
+			</button>
 			<button
 				type="button"
 				onClick={() => setEditOpen(true)}
@@ -434,16 +419,30 @@ function TodoRow({ todo }: { todo: Todo }) {
 						<SelectItem value="low">Low</SelectItem>
 					</SelectContent>
 				</Select>
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
+				<div className="flex items-center gap-0.5">
+					{todo.status !== "done" && (
 						<Button
+							type="button"
 							variant="ghost"
 							size="icon"
-							className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+							className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
+							title="Mark as done"
+							aria-label="Mark as done"
+							onClick={() => void setStatus("done")}
 						>
-							<MoreVerticalIcon className="h-4 w-4" />
+							<CheckIcon className="h-4 w-4" />
 						</Button>
-					</DropdownMenuTrigger>
+					)}
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+							>
+								<MoreVerticalIcon className="h-4 w-4" />
+							</Button>
+						</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
 						<DropdownMenuItem onClick={() => setEditOpen(true)}>
 							<PencilIcon className="h-4 w-4" />
@@ -471,7 +470,8 @@ function TodoRow({ todo }: { todo: Todo }) {
 							Archive
 						</DropdownMenuItem>
 					</DropdownMenuContent>
-				</DropdownMenu>
+					</DropdownMenu>
+				</div>
 			</div>
 
 			<Dialog open={editOpen} onOpenChange={setEditOpen}>
