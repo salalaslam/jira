@@ -2,6 +2,29 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireUser } from "./helpers";
 
+function normalizeProjectLink(raw?: string) {
+	const trimmed = raw?.trim();
+	if (!trimmed) return undefined;
+
+	const candidate =
+		trimmed.startsWith("http://") || trimmed.startsWith("https://")
+			? trimmed
+			: `https://${trimmed}`;
+
+	let url: URL;
+	try {
+		url = new URL(candidate);
+	} catch {
+		throw new Error("Project link must be a valid URL");
+	}
+
+	if (!["http:", "https:"].includes(url.protocol)) {
+		throw new Error("Project link must start with http:// or https://");
+	}
+
+	return url.toString();
+}
+
 export const list = query({
 	args: {
 		token: v.string(),
@@ -56,15 +79,18 @@ export const create = mutation({
 		token: v.string(),
 		name: v.string(),
 		color: v.string(),
+		link: v.optional(v.string()),
 	},
-	handler: async (ctx, { token, name, color }) => {
+	handler: async (ctx, { token, name, color, link }) => {
 		const user = await requireUser(ctx, token);
 		const trimmed = name.trim();
+		const normalizedLink = normalizeProjectLink(link);
 		if (!trimmed) throw new Error("Project name is required");
 
 		const projectId = await ctx.db.insert("projects", {
 			name: trimmed,
 			color,
+			link: normalizedLink,
 			createdBy: user._id,
 		});
 
@@ -87,8 +113,9 @@ export const update = mutation({
 		projectId: v.id("projects"),
 		name: v.optional(v.string()),
 		color: v.optional(v.string()),
+		link: v.optional(v.string()),
 	},
-	handler: async (ctx, { token, projectId, name, color }) => {
+	handler: async (ctx, { token, projectId, name, color, link }) => {
 		const user = await requireUser(ctx, token);
 		const project = await ctx.db.get(projectId);
 		if (!project) throw new Error("Project not found");
@@ -102,6 +129,16 @@ export const update = mutation({
 		if (color !== undefined && color !== project.color) {
 			patch.color = color;
 			changes.push(`color: ${project.color} → ${color}`);
+		}
+		if (link !== undefined) {
+			const normalizedLink = normalizeProjectLink(link);
+			const previousLink = (project as { link?: string }).link;
+			if (normalizedLink !== previousLink) {
+				patch.link = normalizedLink;
+				changes.push(
+					`link: ${previousLink ?? "(empty)"} → ${normalizedLink ?? "(empty)"}`,
+				);
+			}
 		}
 
 		if (Object.keys(patch).length === 0) return;

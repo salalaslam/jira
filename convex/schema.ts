@@ -19,6 +19,7 @@ export default defineSchema({
 	projects: defineTable({
 		name: v.string(),
 		color: v.string(),
+		link: v.optional(v.string()),
 		archivedAt: v.optional(v.number()),
 		createdBy: v.id("users"),
 	}).index("by_archived", ["archivedAt"]),
