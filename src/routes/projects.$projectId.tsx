@@ -4,6 +4,7 @@ import {
 	ArchiveIcon,
 	ArrowLeftIcon,
 	CheckCircle2Icon,
+	CheckIcon,
 	ChevronRightIcon,
 	CircleIcon,
 	CopyIcon,
@@ -358,22 +359,37 @@ function TodoRow({ todo }: { todo: Todo }) {
 
 	return (
 		<div className="group flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/30">
-			<button
-				type="button"
-				onClick={() => {
-					const next: Status =
-						todo.status === "todo"
-							? "in_progress"
-							: todo.status === "in_progress"
-								? "done"
-								: "todo";
-					void setStatus(next);
-				}}
-				className="mt-0.5 shrink-0"
-				title="Cycle status"
-			>
-				{STATUS_META[todo.status].icon}
-			</button>
+			<div className="mt-0.5 flex shrink-0 items-center gap-0.5">
+				<button
+					type="button"
+					onClick={() => {
+						const next: Status =
+							todo.status === "todo"
+								? "in_progress"
+								: todo.status === "in_progress"
+									? "done"
+									: "todo";
+						void setStatus(next);
+					}}
+					className="shrink-0"
+					title="Cycle status"
+				>
+					{STATUS_META[todo.status].icon}
+				</button>
+				{todo.status !== "done" && (
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="h-7 w-7 text-muted-foreground hover:text-emerald-600"
+						title="Mark as done"
+						aria-label="Mark as done"
+						onClick={() => void setStatus("done")}
+					>
+						<CheckIcon className="h-4 w-4" />
+					</Button>
+				)}
+			</div>
 			<button
 				type="button"
 				onClick={() => setEditOpen(true)}
