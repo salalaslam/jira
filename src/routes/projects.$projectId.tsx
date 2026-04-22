@@ -8,6 +8,7 @@ import {
 	ChevronRightIcon,
 	CircleIcon,
 	CopyIcon,
+	ExternalLinkIcon,
 	Loader2Icon,
 	MoreVerticalIcon,
 	PencilIcon,
@@ -161,6 +162,8 @@ function ProjectDetail() {
 		);
 	}
 
+	const projectLink = (project as { link?: string }).link;
+
 	return (
 		<div className="flex flex-col gap-6">
 			<div>
@@ -172,40 +175,65 @@ function ProjectDetail() {
 					<span className="text-foreground">{project.name}</span>
 				</div>
 				<div className="flex items-start justify-between gap-4 flex-wrap">
-					<div className="flex items-center gap-3">
-						<Link
-							to="/"
-							className="text-muted-foreground hover:text-foreground"
-						>
-							<ArrowLeftIcon className="h-4 w-4" />
-						</Link>
-						<span
-							className={cn(
-								"h-6 w-1.5 rounded-full",
-								colorClassForProject(project.color),
-							)}
-						/>
-						<h1 className="text-2xl font-semibold tracking-tight">
-							{project.name}
-							{project.archivedAt && (
-								<Badge variant="secondary" className="ml-2 align-middle">
-									Archived
-								</Badge>
-							)}
-						</h1>
+					<div className="flex flex-col gap-1">
+						<div className="flex items-center gap-3">
+							<Link
+								to="/"
+								className="text-muted-foreground hover:text-foreground"
+							>
+								<ArrowLeftIcon className="h-4 w-4" />
+							</Link>
+							<span
+								className={cn(
+									"h-6 w-1.5 rounded-full",
+									colorClassForProject(project.color),
+								)}
+							/>
+							<h1 className="text-2xl font-semibold tracking-tight">
+								{project.name}
+								{project.archivedAt && (
+									<Badge variant="secondary" className="ml-2 align-middle">
+										Archived
+									</Badge>
+								)}
+							</h1>
+						</div>
+						{projectLink && (
+							<div className="ml-7 text-sm text-muted-foreground">
+								<a
+									href={projectLink}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="inline-flex items-center gap-1 hover:text-foreground"
+								>
+									{projectLink}
+									<ExternalLinkIcon className="h-3.5 w-3.5" />
+								</a>
+							</div>
+						)}
 					</div>
-					<Dialog open={createOpen} onOpenChange={setCreateOpen}>
-						<DialogTrigger asChild>
-							<Button>
-								<PlusIcon className="h-4 w-4" />
-								New todo
+					<div className="flex items-center gap-2">
+						{projectLink && (
+							<Button asChild variant="outline">
+								<a href={projectLink} target="_blank" rel="noopener noreferrer">
+									<ExternalLinkIcon className="h-4 w-4" />
+									Open link
+								</a>
 							</Button>
-						</DialogTrigger>
-						<CreateTodoDialog
-							projectId={typedId}
-							onClose={() => setCreateOpen(false)}
-						/>
-					</Dialog>
+						)}
+						<Dialog open={createOpen} onOpenChange={setCreateOpen}>
+							<DialogTrigger asChild>
+								<Button>
+									<PlusIcon className="h-4 w-4" />
+									New todo
+								</Button>
+							</DialogTrigger>
+							<CreateTodoDialog
+								projectId={typedId}
+								onClose={() => setCreateOpen(false)}
+							/>
+						</Dialog>
+					</div>
 				</div>
 			</div>
 
@@ -443,33 +471,33 @@ function TodoRow({ todo }: { todo: Todo }) {
 								<MoreVerticalIcon className="h-4 w-4" />
 							</Button>
 						</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						<DropdownMenuItem onClick={() => setEditOpen(true)}>
-							<PencilIcon className="h-4 w-4" />
-							Edit
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							onClick={() => void copyDescription()}
-							disabled={!todo.description?.trim()}
-						>
-							<CopyIcon className="h-4 w-4" />
-							Copy description
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							onClick={async () => {
-								if (!token) return;
-								try {
-									await archive({ token, todoId: todo._id });
-									toast.success("Todo archived");
-								} catch (e) {
-									toast.error(e instanceof Error ? e.message : "Failed");
-								}
-							}}
-						>
-							<ArchiveIcon className="h-4 w-4" />
-							Archive
-						</DropdownMenuItem>
-					</DropdownMenuContent>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem onClick={() => setEditOpen(true)}>
+								<PencilIcon className="h-4 w-4" />
+								Edit
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								onClick={() => void copyDescription()}
+								disabled={!todo.description?.trim()}
+							>
+								<CopyIcon className="h-4 w-4" />
+								Copy description
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								onClick={async () => {
+									if (!token) return;
+									try {
+										await archive({ token, todoId: todo._id });
+										toast.success("Todo archived");
+									} catch (e) {
+										toast.error(e instanceof Error ? e.message : "Failed");
+									}
+								}}
+							>
+								<ArchiveIcon className="h-4 w-4" />
+								Archive
+							</DropdownMenuItem>
+						</DropdownMenuContent>
 					</DropdownMenu>
 				</div>
 			</div>

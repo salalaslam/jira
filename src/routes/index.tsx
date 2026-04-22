@@ -4,6 +4,7 @@ import {
 	ArchiveIcon,
 	CheckCircle2Icon,
 	CircleIcon,
+	ExternalLinkIcon,
 	Loader2Icon,
 	MoreVerticalIcon,
 	PencilIcon,
@@ -163,6 +164,7 @@ function ProjectCard({
 		_creationTime: number;
 		name: string;
 		color: string;
+		link?: string;
 		counts: { total: number; todo: number; inProgress: number; done: number };
 	};
 }) {
@@ -195,6 +197,25 @@ function ProjectCard({
 					</div>
 				</Link>
 				<div className="flex items-center gap-0.5">
+					{project.link && (
+						<Button
+							asChild
+							variant="ghost"
+							size="icon"
+							className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
+							title="Open project link in new tab"
+							aria-label="Open project link in new tab"
+						>
+							<a
+								href={project.link}
+								target="_blank"
+								rel="noopener noreferrer"
+								onClick={(e) => e.stopPropagation()}
+							>
+								<ExternalLinkIcon className="h-4 w-4" />
+							</a>
+						</Button>
+					)}
 					<Dialog open={quickAddOpen} onOpenChange={setQuickAddOpen}>
 						<DialogTrigger asChild>
 							<Button
@@ -319,6 +340,7 @@ function CreateProjectDialog({ onClose }: { onClose: () => void }) {
 	const create = useMutation(api.projects.create);
 	const [name, setName] = React.useState("");
 	const [color, setColor] = React.useState("sky");
+	const [link, setLink] = React.useState("");
 	const [submitting, setSubmitting] = React.useState(false);
 
 	async function onSubmit(e: React.FormEvent) {
@@ -326,9 +348,10 @@ function CreateProjectDialog({ onClose }: { onClose: () => void }) {
 		if (!token) return;
 		setSubmitting(true);
 		try {
-			await create({ token, name, color });
+			await create({ token, name, color, link });
 			toast.success("Project created");
 			setName("");
+			setLink("");
 			onClose();
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : "Failed");
@@ -361,6 +384,16 @@ function CreateProjectDialog({ onClose }: { onClose: () => void }) {
 					<Label>Color</Label>
 					<ColorPicker value={color} onChange={setColor} />
 				</div>
+				<div className="flex flex-col gap-2">
+					<Label htmlFor="project-link">Project link (optional)</Label>
+					<Input
+						id="project-link"
+						type="url"
+						value={link}
+						onChange={(e) => setLink(e.target.value)}
+						placeholder="https://github.com/org/repo"
+					/>
+				</div>
 				<DialogFooter>
 					<Button
 						type="button"
@@ -384,13 +417,14 @@ function EditProjectDialog({
 	project,
 	onClose,
 }: {
-	project: { _id: Id<"projects">; name: string; color: string };
+	project: { _id: Id<"projects">; name: string; color: string; link?: string };
 	onClose: () => void;
 }) {
 	const { token } = useSession();
 	const update = useMutation(api.projects.update);
 	const [name, setName] = React.useState(project.name);
 	const [color, setColor] = React.useState(project.color);
+	const [link, setLink] = React.useState(project.link ?? "");
 	const [submitting, setSubmitting] = React.useState(false);
 
 	async function onSubmit(e: React.FormEvent) {
@@ -398,7 +432,7 @@ function EditProjectDialog({
 		if (!token) return;
 		setSubmitting(true);
 		try {
-			await update({ token, projectId: project._id, name, color });
+			await update({ token, projectId: project._id, name, color, link });
 			toast.success("Project updated");
 			onClose();
 		} catch (err) {
@@ -427,6 +461,16 @@ function EditProjectDialog({
 				<div className="flex flex-col gap-2">
 					<Label>Color</Label>
 					<ColorPicker value={color} onChange={setColor} />
+				</div>
+				<div className="flex flex-col gap-2">
+					<Label htmlFor="name-link">Project link (optional)</Label>
+					<Input
+						id="name-link"
+						type="url"
+						value={link}
+						onChange={(e) => setLink(e.target.value)}
+						placeholder="https://github.com/org/repo"
+					/>
 				</div>
 				<DialogFooter>
 					<Button
