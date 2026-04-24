@@ -7,6 +7,7 @@ import {
 import { Loader2Icon } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
+import { ThemeToggle } from "#/components/ThemeToggle";
 import { Button } from "#/components/ui/button";
 import {
 	Card,
@@ -50,6 +51,9 @@ function LoginPage() {
 
 	return (
 		<div className="grid min-h-screen place-items-center bg-muted/30 px-4">
+			<div className="absolute right-4 top-4">
+				<ThemeToggle />
+			</div>
 			<Card className="w-full max-w-sm">
 				<CardHeader className="text-center">
 					<div className="mx-auto mb-2 grid h-10 w-10 place-items-center rounded-lg bg-primary text-primary-foreground font-bold">
