@@ -5,6 +5,7 @@ import { ConvexProvider } from "convex/react";
 import { Toaster } from "sonner";
 import { convex } from "#/lib/convex";
 import { SessionProvider } from "#/lib/session";
+import { ThemeProvider, themeInitScript, useTheme } from "#/lib/theme";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
@@ -26,15 +27,21 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
 		<html lang="en" className="h-full">
 			<head>
+				<script
+					// biome-ignore lint/security/noDangerouslySetInnerHtml: Runs before CSS to apply the persisted theme without a flash.
+					dangerouslySetInnerHTML={{ __html: themeInitScript }}
+				/>
 				<HeadContent />
 			</head>
 			<body className="h-full bg-background text-foreground antialiased">
-				<ConvexProvider client={convex}>
-					<SessionProvider>
-						{children}
-						<Toaster richColors position="top-right" />
-					</SessionProvider>
-				</ConvexProvider>
+				<ThemeProvider>
+					<ConvexProvider client={convex}>
+						<SessionProvider>
+							{children}
+							<ThemeAwareToaster />
+						</SessionProvider>
+					</ConvexProvider>
+				</ThemeProvider>
 				{import.meta.env.DEV && (
 					<TanStackDevtools
 						config={{ position: "bottom-right" }}
@@ -50,4 +57,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			</body>
 		</html>
 	);
+}
+
+function ThemeAwareToaster() {
+	const { resolvedTheme } = useTheme();
+
+	return <Toaster richColors position="top-right" theme={resolvedTheme} />;
 }

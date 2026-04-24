@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
+import { ThemeToggle } from "#/components/ThemeToggle";
 import { Button } from "#/components/ui/button";
 import {
 	Dialog,
@@ -75,7 +76,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 						})}
 					</nav>
 
-					<div className="ml-auto">
+					<div className="ml-auto flex items-center gap-1">
+						<ThemeToggle />
 						{user && (
 							<>
 								<DropdownMenu>
