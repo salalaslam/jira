@@ -1,161 +1,34 @@
 # byome · tasks
 
-A tiny WhatsApp-driven task manager for the two of us. Create projects, track
-todos inside them, see who did what. Nothing ever gets deleted — only archived.
+Shared task management for two people who want something lighter than Jira and
+less chaotic than a WhatsApp thread.
 
-**Stack**: TanStack Start · Tailwind CSS + shadcn/ui · Convex · Vercel.
+Create projects, track todos, see who changed what, and archive anything
+without losing history.
 
----
+![Projects dashboard](./docs/screenshots/dashboard.png)
 
-## Features
+## What it does
 
-- Per-user password login (Thomas, Salal).
-- Projects with colour tags and live todo counts.
-- Todos with `title`, `description`, `status` (todo / in progress / done) and
-  `priority` (low / medium / high).
-- Inline status cycling, priority drop-down, and filters.
-- Archive instead of delete — everything is recoverable from the **Archive**
-  page.
-- Per-item activity timeline (who created / updated / archived, and what
-  changed).
-- Realtime updates thanks to Convex subscriptions.
+- Keeps projects and todos in one simple shared workspace.
+- Tracks status, priority, descriptions, and recent activity.
+- Preserves everything through an archive instead of delete flow.
+- Updates live for everyone connected to the app.
 
----
+## Inside the app
 
-## First-time setup
+![Project detail view](./docs/screenshots/project-detail.png)
 
-```bash
-pnpm install
+The project view combines task filters, quick status updates, and a running
+activity feed so it is obvious what changed and who changed it.
 
-# 1. Provision a Convex deployment. Follow the CLI prompts — it stores
-#    CONVEX_DEPLOYMENT in .env.local and prints your deployment URL.
-npx convex dev
-```
+![Archive view](./docs/screenshots/archive.png)
 
-When `convex dev` is running it watches `convex/**` and regenerates
-`convex/_generated/*`. Leave it running or stop after the first successful push.
+Archived projects and todos stay one click away from being restored, which
+makes the app safe to use as an everyday shared system rather than a brittle
+checklist.
 
-Copy the Convex URL that `convex dev` printed into `.env.local`:
+## Getting started
 
-```bash
-cp .env.example .env.local
-# then edit .env.local:
-VITE_CONVEX_URL=https://<your-deployment>.convex.cloud
-THOMAS_PASSWORD=super-secret-thomas
-SALAL_PASSWORD=super-secret-salal
-```
-
-Seed Thomas and Salal:
-
-```bash
-pnpm seed
-```
-
-Re-running `pnpm seed` rotates their passwords, which is handy.
-
----
-
-## Day-to-day
-
-```bash
-# Runs Vite + Convex together
-pnpm dev:all
-
-# Or separately
-pnpm dev          # web on http://localhost:3000
-pnpm dev:convex   # Convex schema push + type generation
-```
-
-Open http://localhost:3000 and sign in with `thomas` / `salal` plus the
-password you set.
-
-Useful scripts:
-
-| Command | What it does |
-| --- | --- |
-| `pnpm build` | Production build via Nitro (Vercel preset). |
-| `pnpm preview` | Preview the built app locally. |
-| `pnpm seed` | Create/update Thomas & Salal using env passwords. |
-| `pnpm typecheck` | `tsc --noEmit` across the app. |
-| `pnpm check` | Biome lint + format check. |
-
----
-
-## Deploying to Vercel
-
-1. Push this repo to GitHub.
-2. In Convex, promote your dev deployment to production (or run
-   `npx convex deploy`). Copy the **production** URL.
-3. On Vercel:
-   - Import the repo.
-   - Framework preset: **TanStack Start** (Vercel auto-detects Nitro).
-   - Add env vars:
-     - `VITE_CONVEX_URL` → the prod Convex URL.
-     - `CONVEX_DEPLOY_KEY` → from Convex dashboard → Settings → Deploy keys.
-   - Build command: `pnpm build` (default). Install command: `pnpm install`.
-4. Deploy. After the first deploy, seed the production DB:
-   ```bash
-   # point `VITE_CONVEX_URL` at production then:
-   pnpm seed
-   ```
-
-That's it — the Vercel URL is the one you share. No server work on `byome`
-needed; if you want a pretty URL, reverse-proxy it from your box or use a
-Vercel custom domain.
-
----
-
-## Architecture
-
-```
-convex/                 Convex functions (server)
-  schema.ts             users, sessions, projects, todos, activities
-  auth.ts               login / logout / getMe / seedUsers / changePassword
-  projects.ts           list, get, create, update, archive, unarchive
-  todos.ts              list, get, create, update, archive, unarchive
-  activities.ts         listForEntity, listForProject
-  helpers.ts            requireUser(token) session guard
-
-src/
-  routes/
-    __root.tsx          HTML shell + Convex + Session providers
-    index.tsx           Projects dashboard
-    login.tsx           Sign-in form
-    archived.tsx        Archive (projects + todos, one-click restore)
-    projects.$projectId.tsx   Project detail — todos + activity sidebar
-  components/
-    AppShell.tsx        Top bar with nav and user menu
-    AuthGate.tsx        Redirect to /login if no session
-    ui/                 shadcn primitives (button, dialog, etc.)
-  lib/
-    convex.ts           ConvexReactClient singleton
-    session.tsx         SessionProvider: token in localStorage, getMe query
-    auth.ts             getStoredToken / setStoredToken
-
-scripts/
-  seed.ts               Create Thomas & Salal via Convex HTTP client
-```
-
-**Auth model** — sessions are random 32-byte tokens stored in Convex and the
-browser's localStorage. Every mutation/query that changes data takes the token
-as an argument and is validated with `requireUser`. Bcrypt hashes are stored
-server-side only.
-
-**Activity tracking** — every create / update / archive / unarchive writes an
-`activities` row with `userId`, `entityType`, `entityId`, and a human-readable
-`details` string. Queryable per-entity (todo history modal) or per-project
-(sidebar timeline).
-
----
-
-## Adding a feature
-
-1. Add/adjust the Convex table in `convex/schema.ts`.
-2. Write a mutation or query in `convex/<module>.ts` — always call
-   `await requireUser(ctx, token)` first, always write an `activities` row if
-   you change state.
-3. Wire it in the UI via `useQuery(api.x.y, { token, ... })` or
-   `useMutation(api.x.y)`.
-
-Because everything flows through Convex, other tabs/users see changes
-immediately without extra plumbing.
+Setup, local development, deployment, scripts, and architecture are documented
+in [GETTING_STARTED.md](./GETTING_STARTED.md).
