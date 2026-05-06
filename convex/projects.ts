@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
+import { action, mutation, query } from "./_generated/server";
 import { requireUser } from "./helpers";
 
 function normalizeProjectLink(raw?: string) {
@@ -188,5 +189,60 @@ export const unarchive = mutation({
 			projectId,
 			action: "unarchived",
 		});
+	},
+});
+
+export const checkLinkStatuses = action({
+	args: {
+		token: v.string(),
+		links: v.array(
+			v.object({
+				projectId: v.id("projects"),
+				url: v.string(),
+			}),
+		),
+	},
+	handler: async (ctx, { token, links }) => {
+		const user = await ctx.runQuery(api.auth.getMe, { token });
+		if (!user) throw new Error("Not authenticated");
+		const limitedLinks = links.slice(0, 50);
+		const statuses = await Promise.all(
+			limitedLinks.map(async ({ projectId, url }) => {
+				try {
+					const controller = new AbortController();
+					const timeout = setTimeout(() => controller.abort(), 4000);
+					let response: Response;
+					try {
+						response = await fetch(url, {
+							method: "HEAD",
+							redirect: "follow",
+							signal: controller.signal,
+						});
+					} catch {
+						response = await fetch(url, {
+							method: "GET",
+							redirect: "follow",
+							signal: controller.signal,
+						});
+					} finally {
+						clearTimeout(timeout);
+					}
+
+					return {
+						projectId,
+						ok: response.ok,
+						status: response.status,
+					};
+				} catch {
+					return {
+						projectId,
+						ok: false,
+						status: undefined,
+					};
+				}
+			}),
+		);
+
+		return statuses;
 	},
 });

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
 	ArchiveIcon,
 	CheckCircle2Icon,
@@ -77,12 +77,43 @@ function IndexPage() {
 
 function ProjectsDashboard() {
 	const { token } = useSession();
+	const checkLinkStatuses = useAction(api.projects.checkLinkStatuses);
 	const projects = useQuery(
 		api.projects.list,
 		token ? { token, includeArchived: false } : "skip",
 	);
+	const [linkStatuses, setLinkStatuses] = React.useState<
+		Record<string, { ok: boolean; status?: number }>
+	>({});
 	const [search, setSearch] = React.useState("");
 	const [createOpen, setCreateOpen] = React.useState(false);
+
+	React.useEffect(() => {
+		if (!token || !projects) return;
+		const links = projects
+			.filter((p) => !!p.link)
+			.map((p) => ({ projectId: p._id, url: p.link as string }));
+		if (links.length === 0) {
+			setLinkStatuses({});
+			return;
+		}
+		let cancelled = false;
+		void checkLinkStatuses({ token, links })
+			.then((result) => {
+				if (cancelled) return;
+				const next: Record<string, { ok: boolean; status?: number }> = {};
+				for (const item of result) {
+					next[item.projectId] = { ok: item.ok, status: item.status };
+				}
+				setLinkStatuses(next);
+			})
+			.catch(() => {
+				if (!cancelled) setLinkStatuses({});
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [checkLinkStatuses, projects, token]);
 
 	const filtered = React.useMemo(() => {
 		if (!projects) return [];
@@ -148,7 +179,7 @@ function ProjectsDashboard() {
 			) : (
 				<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{filtered.map((p) => (
-						<ProjectCard key={p._id} project={p} />
+						<ProjectCard key={p._id} project={p} linkStatus={linkStatuses[p._id]} />
 					))}
 				</div>
 			)}
@@ -158,6 +189,7 @@ function ProjectsDashboard() {
 
 function ProjectCard({
 	project,
+	linkStatus,
 }: {
 	project: {
 		_id: Id<"projects">;
@@ -167,6 +199,7 @@ function ProjectCard({
 		link?: string;
 		counts: { total: number; todo: number; inProgress: number; done: number };
 	};
+	linkStatus?: { ok: boolean; status?: number };
 }) {
 	const { token } = useSession();
 	const archive = useMutation(api.projects.archive);
@@ -197,6 +230,9 @@ function ProjectCard({
 					</div>
 				</Link>
 				<div className="flex items-center gap-0.5">
+					{project.link && (
+						<LinkStatusBadge status={linkStatus} />
+					)}
 					{project.link && (
 						<Button
 							asChild
@@ -296,6 +332,32 @@ function ProjectCard({
 				/>
 			</Dialog>
 		</div>
+	);
+}
+
+function LinkStatusBadge({
+	status,
+}: {
+	status?: { ok: boolean; status?: number };
+}) {
+	if (!status) {
+		return (
+			<span className="text-[11px] text-muted-foreground px-1.5 py-0.5">
+				Checking...
+			</span>
+		);
+	}
+	return (
+		<span
+			className={cn(
+				"text-[11px] px-1.5 py-0.5 rounded-sm border",
+				status.ok
+					? "border-emerald-500/30 text-emerald-600"
+					: "border-destructive/30 text-destructive",
+			)}
+		>
+			{status.status ? `HTTP ${status.status}` : "Broken"}
+		</span>
 	);
 }
 
