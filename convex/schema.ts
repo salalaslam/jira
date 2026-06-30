@@ -55,4 +55,13 @@ export default defineSchema({
 	})
 		.index("by_entity", ["entityType", "entityId"])
 		.index("by_project", ["projectId"]),
+
+	todoAttachments: defineTable({
+		todoId: v.id("todos"),
+		fileName: v.string(),
+		contentType: v.string(),
+		size: v.number(),
+		objectKey: v.string(),
+		uploadedBy: v.id("users"),
+	}).index("by_todo", ["todoId"]),
 });

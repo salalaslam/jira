@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { requireUser } from "./helpers";
 
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
@@ -85,6 +85,13 @@ export const getMe = query({
 			username: user.username,
 			displayName: user.displayName,
 		};
+	},
+});
+
+export const requireUserForAction = internalQuery({
+	args: { token: v.string() },
+	handler: async (ctx, { token }) => {
+		return await requireUser(ctx, token);
 	},
 });
 

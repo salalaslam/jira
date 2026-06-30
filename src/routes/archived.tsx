@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AuthGate } from "#/components/AuthGate";
+import { TodoAttachments } from "#/components/TodoAttachments";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Separator } from "#/components/ui/separator";
@@ -171,6 +172,7 @@ function ArchivedView() {
 													<span className="truncate">{t.link}</span>
 												</a>
 											)}
+											<TodoAttachments todoId={t._id} compact />
 											<div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
 												{t.project && (
 													<>
