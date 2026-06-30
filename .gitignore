@@ -29,3 +29,4 @@ scripts/s3.*.app.conf
 scripts/minio-access-maps.conf
 scripts/minio-cors.xml
 pnpm-workspace.yaml
+.private-ops-paths.txt
