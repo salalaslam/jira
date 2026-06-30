@@ -25,7 +25,7 @@ backups/**
 docs/*-audit.txt
 scripts/deploy-*.sh
 scripts/backup-*.sh
-scripts/s3.<MINIO_HOST>.conf
+scripts/s3.*.app.conf
 scripts/minio-access-maps.conf
 scripts/minio-cors.xml
 pnpm-workspace.yaml
