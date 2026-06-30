@@ -80,6 +80,42 @@ Sign in with:
 
 Use the passwords you configured in `.env.local`.
 
+## File attachments (MinIO)
+
+Todo attachments are stored on the MinIO (S3-compatible storage). Convex actions upload
+and download files through presigned S3 URLs, so MinIO must be reachable from
+both Convex cloud and users' browsers.
+
+### 1. Expose MinIO publicly
+
+MinIO runs locally on the server (`127.0.0.1:9000`). Add an nginx vhost such as
+`<MINIO_HOST>` that proxies to it (see `scripts/minio-nginx.example.conf`), then
+point DNS for `<MINIO_HOST>` at the server.
+
+### 2. Create a bucket and access key
+
+In the MinIO console (`127.0.0.1:9001` via SSH tunnel) create a bucket (e.g.
+`<your-bucket>`) and an access key scoped to that bucket.
+
+### 3. Configure Convex environment variables
+
+In the [Convex dashboard](https://dashboard.convex.dev) for this deployment,
+set:
+
+| Variable | Example |
+| --- | --- |
+| `MINIO_ENDPOINT` | `https://<your-minio-host>` |
+| `MINIO_PUBLIC_URL` | `https://<your-minio-host>` |
+| `MINIO_ACCESS_KEY` | your access key |
+| `MINIO_SECRET_KEY` | your secret key |
+| `MINIO_BUCKET` | `<your-bucket>` |
+
+`MINIO_PUBLIC_URL` can differ from `MINIO_ENDPOINT` when Convex signs against an
+internal URL but browsers must use a public host. For a single public endpoint,
+set both to the same value.
+
+Attachments are limited to **20 MB** per file.
+
 ## Useful scripts
 
 | Command | What it does |
@@ -113,10 +149,13 @@ pnpm seed
 
 ```text
 convex/                 Convex functions and schema
-  schema.ts             users, sessions, projects, todos, activities
+  schema.ts             users, sessions, projects, todos, activities, attachments
   auth.ts               login, logout, getMe, seedUsers, changePassword
   projects.ts           list, get, create, update, archive, unarchive
   todos.ts              list, get, create, update, archive, unarchive
+  attachments.ts        attachment metadata queries and mutations
+  attachmentActions.ts  presigned MinIO upload/download actions
+  storage.ts            MinIO S3 client (Node actions only)
   activities.ts         activity queries
   helpers.ts            requireUser(token)
 

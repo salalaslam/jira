@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
 	ArchiveIcon,
 	ArrowLeftIcon,
@@ -18,6 +18,7 @@ import {
 import * as React from "react";
 import { toast } from "sonner";
 import { AuthGate } from "#/components/AuthGate";
+import { TodoAttachments, uploadFilesToTodo } from "#/components/TodoAttachments";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import {
@@ -442,6 +443,7 @@ function TodoRow({ todo }: { todo: Todo }) {
 						<span className="truncate">{todo.link}</span>
 					</a>
 				)}
+				<TodoAttachments todoId={todo._id} compact />
 			</div>
 			<div className="flex items-center gap-2">
 				<Select
@@ -533,9 +535,13 @@ function CreateTodoDialog({
 }) {
 	const { token } = useSession();
 	const create = useMutation(api.todos.create);
+	const generateUploadUrl = useAction(api.attachmentActions.generateUploadUrl);
+	const addAttachment = useMutation(api.attachments.add);
 	const [title, setTitle] = React.useState("");
 	const [description, setDescription] = React.useState("");
 	const [link, setLink] = React.useState("");
+	const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
+	const fileInputRef = React.useRef<HTMLInputElement>(null);
 	const [status, setStatus] = React.useState<Status>("todo");
 	const [priority, setPriority] = React.useState<Priority>("medium");
 	const [submitting, setSubmitting] = React.useState(false);
@@ -545,7 +551,7 @@ function CreateTodoDialog({
 		if (!token) return;
 		setSubmitting(true);
 		try {
-			await create({
+			const todoId = await create({
 				token,
 				projectId,
 				title,
@@ -554,12 +560,25 @@ function CreateTodoDialog({
 				status,
 				priority,
 			});
-			toast.success("Todo created");
+			if (pendingFiles.length > 0) {
+				await uploadFilesToTodo({
+					token,
+					todoId,
+					files: pendingFiles,
+					generateUploadUrl,
+					addAttachment,
+				});
+			}
+			toast.success(
+				pendingFiles.length > 0 ? "Todo created with attachments" : "Todo created",
+			);
 			setTitle("");
 			setDescription("");
 			setLink("");
+			setPendingFiles([]);
 			setStatus("todo");
 			setPriority("medium");
+			if (fileInputRef.current) fileInputRef.current.value = "";
 			onClose();
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : "Failed");
@@ -603,6 +622,24 @@ function CreateTodoDialog({
 						onChange={(e) => setLink(e.target.value)}
 						placeholder="https://github.com/org/repo/issues/123"
 					/>
+				</div>
+				<div className="flex flex-col gap-2">
+					<Label htmlFor="todo-files">Attachments (optional)</Label>
+					<Input
+						ref={fileInputRef}
+						id="todo-files"
+						type="file"
+						multiple
+						onChange={(e) => {
+							setPendingFiles(e.target.files ? Array.from(e.target.files) : []);
+						}}
+					/>
+					{pendingFiles.length > 0 && (
+						<p className="text-xs text-muted-foreground">
+							{pendingFiles.length} file
+							{pendingFiles.length === 1 ? "" : "s"} selected
+						</p>
+					)}
 				</div>
 				<div className="grid grid-cols-2 gap-3">
 					<div className="flex flex-col gap-2">
@@ -737,6 +774,7 @@ function EditTodoDialog({
 						placeholder="https://github.com/org/repo/issues/123"
 					/>
 				</div>
+				<TodoAttachments todoId={todo._id} />
 				<div className="grid grid-cols-2 gap-3">
 					<div className="flex flex-col gap-2">
 						<Label>Status</Label>
