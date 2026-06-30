@@ -99,6 +99,80 @@ const PRIORITY_META: Record<Priority, { label: string; className: string }> = {
 	},
 };
 
+const STATUSES: Status[] = ["todo", "in_progress", "done"];
+const PRIORITIES: Priority[] = ["low", "medium", "high"];
+
+function StatusButtonGroup({
+	value,
+	onChange,
+}: {
+	value: Status;
+	onChange: (value: Status) => void;
+}) {
+	return (
+		<div
+			className="flex overflow-hidden rounded-md border border-input"
+			role="group"
+			aria-label="Status"
+		>
+			{STATUSES.map((s, i) => (
+				<Button
+					key={s}
+					type="button"
+					variant="ghost"
+					size="sm"
+					aria-pressed={value === s}
+					className={cn(
+						"h-9 flex-1 rounded-none gap-1.5 text-xs",
+						i > 0 && "border-l border-input",
+						value === s && "bg-accent text-accent-foreground",
+					)}
+					onClick={() => onChange(s)}
+				>
+					{STATUS_META[s].icon}
+					{STATUS_META[s].label}
+				</Button>
+			))}
+		</div>
+	);
+}
+
+function PriorityButtonGroup({
+	value,
+	onChange,
+}: {
+	value: Priority;
+	onChange: (value: Priority) => void;
+}) {
+	return (
+		<div
+			className="flex overflow-hidden rounded-md border border-input"
+			role="group"
+			aria-label="Priority"
+		>
+			{PRIORITIES.map((p, i) => (
+				<Button
+					key={p}
+					type="button"
+					variant="ghost"
+					size="sm"
+					aria-pressed={value === p}
+					className={cn(
+						"h-9 flex-1 rounded-none text-xs",
+						i > 0 && "border-l border-input",
+						value === p
+							? PRIORITY_META[p].className
+							: "bg-background hover:bg-accent/50",
+					)}
+					onClick={() => onChange(p)}
+				>
+					{PRIORITY_META[p].label}
+				</Button>
+			))}
+		</div>
+	);
+}
+
 export const Route = createFileRoute("/projects/$projectId")({
 	component: ProjectPage,
 });
@@ -641,39 +715,13 @@ function CreateTodoDialog({
 						</p>
 					)}
 				</div>
-				<div className="grid grid-cols-2 gap-3">
-					<div className="flex flex-col gap-2">
-						<Label>Status</Label>
-						<Select
-							value={status}
-							onValueChange={(v) => setStatus(v as Status)}
-						>
-							<SelectTrigger>
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="todo">Todo</SelectItem>
-								<SelectItem value="in_progress">In progress</SelectItem>
-								<SelectItem value="done">Done</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
-					<div className="flex flex-col gap-2">
-						<Label>Priority</Label>
-						<Select
-							value={priority}
-							onValueChange={(v) => setPriority(v as Priority)}
-						>
-							<SelectTrigger>
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="high">High</SelectItem>
-								<SelectItem value="medium">Medium</SelectItem>
-								<SelectItem value="low">Low</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
+				<div className="flex flex-col gap-2">
+					<Label>Status</Label>
+					<StatusButtonGroup value={status} onChange={setStatus} />
+				</div>
+				<div className="flex flex-col gap-2">
+					<Label>Priority</Label>
+					<PriorityButtonGroup value={priority} onChange={setPriority} />
 				</div>
 				<DialogFooter>
 					<Button
@@ -775,39 +823,13 @@ function EditTodoDialog({
 					/>
 				</div>
 				<TodoAttachments todoId={todo._id} />
-				<div className="grid grid-cols-2 gap-3">
-					<div className="flex flex-col gap-2">
-						<Label>Status</Label>
-						<Select
-							value={status}
-							onValueChange={(v) => setStatus(v as Status)}
-						>
-							<SelectTrigger>
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="todo">Todo</SelectItem>
-								<SelectItem value="in_progress">In progress</SelectItem>
-								<SelectItem value="done">Done</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
-					<div className="flex flex-col gap-2">
-						<Label>Priority</Label>
-						<Select
-							value={priority}
-							onValueChange={(v) => setPriority(v as Priority)}
-						>
-							<SelectTrigger>
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="high">High</SelectItem>
-								<SelectItem value="medium">Medium</SelectItem>
-								<SelectItem value="low">Low</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
+				<div className="flex flex-col gap-2">
+					<Label>Status</Label>
+					<StatusButtonGroup value={status} onChange={setStatus} />
+				</div>
+				<div className="flex flex-col gap-2">
+					<Label>Priority</Label>
+					<PriorityButtonGroup value={priority} onChange={setPriority} />
 				</div>
 
 				<Separator />
