@@ -60,6 +60,7 @@ type Todo = {
 	_creationTime: number;
 	title: string;
 	description: string;
+	link?: string;
 	status: Status;
 	priority: Priority;
 	archivedAt?: number;
@@ -403,31 +404,45 @@ function TodoRow({ todo }: { todo: Todo }) {
 			>
 				{STATUS_META[todo.status].icon}
 			</button>
-			<button
-				type="button"
-				onClick={() => setEditOpen(true)}
-				className="flex-1 min-w-0 text-left"
-			>
-				<div
-					className={cn(
-						"font-medium leading-snug",
-						todo.status === "done" &&
-							"line-through text-muted-foreground decoration-muted-foreground/50",
-					)}
+			<div className="flex-1 min-w-0">
+				<button
+					type="button"
+					onClick={() => setEditOpen(true)}
+					className="w-full text-left"
 				>
-					{todo.title}
-				</div>
-				{todo.description && (
-					<div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
-						{todo.description}
+					<div
+						className={cn(
+							"font-medium leading-snug",
+							todo.status === "done" &&
+								"line-through text-muted-foreground decoration-muted-foreground/50",
+						)}
+					>
+						{todo.title}
 					</div>
+					{todo.description && (
+						<div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
+							{todo.description}
+						</div>
+					)}
+					<div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+						<span>{STATUS_META[todo.status].label}</span>
+						<span>·</span>
+						<span>Updated {formatRelativeTime(todo._creationTime)}</span>
+					</div>
+				</button>
+				{todo.link && (
+					<a
+						href={todo.link}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="mt-1 inline-flex max-w-full items-center gap-1 text-xs text-primary hover:underline"
+						title={todo.link}
+					>
+						<ExternalLinkIcon className="h-3.5 w-3.5 shrink-0" />
+						<span className="truncate">{todo.link}</span>
+					</a>
 				)}
-				<div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-					<span>{STATUS_META[todo.status].label}</span>
-					<span>·</span>
-					<span>Updated {formatRelativeTime(todo._creationTime)}</span>
-				</div>
-			</button>
+			</div>
 			<div className="flex items-center gap-2">
 				<Select
 					value={todo.priority}
@@ -520,6 +535,7 @@ function CreateTodoDialog({
 	const create = useMutation(api.todos.create);
 	const [title, setTitle] = React.useState("");
 	const [description, setDescription] = React.useState("");
+	const [link, setLink] = React.useState("");
 	const [status, setStatus] = React.useState<Status>("todo");
 	const [priority, setPriority] = React.useState<Priority>("medium");
 	const [submitting, setSubmitting] = React.useState(false);
@@ -529,10 +545,19 @@ function CreateTodoDialog({
 		if (!token) return;
 		setSubmitting(true);
 		try {
-			await create({ token, projectId, title, description, status, priority });
+			await create({
+				token,
+				projectId,
+				title,
+				description,
+				link,
+				status,
+				priority,
+			});
 			toast.success("Todo created");
 			setTitle("");
 			setDescription("");
+			setLink("");
 			setStatus("todo");
 			setPriority("medium");
 			onClose();
@@ -567,6 +592,16 @@ function CreateTodoDialog({
 						value={description}
 						onChange={(e) => setDescription(e.target.value)}
 						rows={3}
+					/>
+				</div>
+				<div className="flex flex-col gap-2">
+					<Label htmlFor="todo-link">Link (optional)</Label>
+					<Input
+						id="todo-link"
+						type="url"
+						value={link}
+						onChange={(e) => setLink(e.target.value)}
+						placeholder="https://github.com/org/repo/issues/123"
 					/>
 				</div>
 				<div className="grid grid-cols-2 gap-3">
@@ -640,6 +675,7 @@ function EditTodoDialog({
 
 	const [title, setTitle] = React.useState(todo.title);
 	const [description, setDescription] = React.useState(todo.description);
+	const [link, setLink] = React.useState(todo.link ?? "");
 	const [status, setStatus] = React.useState<Status>(todo.status);
 	const [priority, setPriority] = React.useState<Priority>(todo.priority);
 	const [submitting, setSubmitting] = React.useState(false);
@@ -654,6 +690,7 @@ function EditTodoDialog({
 				todoId: todo._id,
 				title,
 				description,
+				link,
 				status,
 				priority,
 			});
@@ -688,6 +725,16 @@ function EditTodoDialog({
 						value={description}
 						onChange={(e) => setDescription(e.target.value)}
 						rows={5}
+					/>
+				</div>
+				<div className="flex flex-col gap-2">
+					<Label htmlFor="todo-link-edit">Link (optional)</Label>
+					<Input
+						id="todo-link-edit"
+						type="url"
+						value={link}
+						onChange={(e) => setLink(e.target.value)}
+						placeholder="https://github.com/org/repo/issues/123"
 					/>
 				</div>
 				<div className="grid grid-cols-2 gap-3">

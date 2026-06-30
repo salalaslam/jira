@@ -4,6 +4,7 @@ import {
 	ArchiveRestoreIcon,
 	CheckCircle2Icon,
 	CircleIcon,
+	ExternalLinkIcon,
 	Loader2Icon,
 	TimerIcon,
 } from "lucide-react";
@@ -158,6 +159,18 @@ function ArchivedView() {
 										</div>
 										<div className="flex-1 min-w-0">
 											<div className="font-medium truncate">{t.title}</div>
+											{t.link && (
+												<a
+													href={t.link}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="mt-1 inline-flex max-w-full items-center gap-1 text-xs text-primary hover:underline"
+													title={t.link}
+												>
+													<ExternalLinkIcon className="h-3.5 w-3.5 shrink-0" />
+													<span className="truncate">{t.link}</span>
+												</a>
+											)}
 											<div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
 												{t.project && (
 													<>

@@ -25,7 +25,7 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang="en" className="h-full">
+		<html lang="en" className="h-full" suppressHydrationWarning>
 			<head>
 				<script
 					// biome-ignore lint/security/noDangerouslySetInnerHtml: Runs before CSS to apply the persisted theme without a flash.
