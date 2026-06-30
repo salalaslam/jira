@@ -5,6 +5,7 @@ import {
 	DeleteObjectCommand,
 	GetObjectCommand,
 	HeadBucketCommand,
+	PutBucketCorsCommand,
 	PutObjectCommand,
 	S3Client,
 } from "@aws-sdk/client-s3";
@@ -27,8 +28,17 @@ export function getMinioConfig() {
 	const secretAccessKey = requireEnv("MINIO_SECRET_KEY");
 	const bucket = requireEnv("MINIO_BUCKET");
 	const publicUrl = (process.env.MINIO_PUBLIC_URL ?? endpoint).replace(/\/$/, "");
+	const allowedOrigins = requireEnv("MINIO_ALLOWED_ORIGINS")
+		.split(",")
+		.map((o) => o.trim())
+		.filter(Boolean);
+	if (allowedOrigins.length === 0) {
+		throw new Error(
+			"MINIO_ALLOWED_ORIGINS must include at least one origin — set it in the Convex dashboard",
+		);
+	}
 
-	return { endpoint, accessKeyId, secretAccessKey, bucket, publicUrl };
+	return { endpoint, accessKeyId, secretAccessKey, bucket, publicUrl, allowedOrigins };
 }
 
 function createS3Client() {
@@ -43,10 +53,31 @@ function createS3Client() {
 
 async function ensureBucket(client: S3Client, bucket: string) {
 	if (bucketReady) return;
+	const { allowedOrigins } = getMinioConfig();
 	try {
 		await client.send(new HeadBucketCommand({ Bucket: bucket }));
 	} catch {
 		await client.send(new CreateBucketCommand({ Bucket: bucket }));
+	}
+	try {
+		await client.send(
+			new PutBucketCorsCommand({
+				Bucket: bucket,
+				CORSConfiguration: {
+					CORSRules: [
+						{
+							AllowedOrigins: allowedOrigins,
+							AllowedMethods: ["GET", "PUT", "HEAD"],
+							AllowedHeaders: ["*"],
+							ExposeHeaders: ["ETag", "Content-Length", "Content-Type"],
+							MaxAgeSeconds: 3600,
+						},
+					],
+				},
+			}),
+		);
+	} catch {
+		// Some MinIO builds return NotImplemented for bucket CORS; nginx adds CORS headers.
 	}
 	bucketReady = true;
 }

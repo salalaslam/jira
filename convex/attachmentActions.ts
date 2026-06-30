@@ -28,31 +28,37 @@ export const generateUploadUrl = action({
 		size: v.number(),
 	}),
 	handler: async (ctx, { token, todoId, fileName, contentType, size }) => {
-		await ctx.runQuery(internal.auth.requireUserForAction, { token });
+		try {
+			await ctx.runQuery(internal.auth.requireUserForAction, { token });
 
-		const prepared: PreparedUpload = await ctx.runMutation(
-			internal.attachmentInternals.prepareUpload,
-			{
-				todoId,
-				fileName,
-				contentType,
-				size,
-			},
-		);
+			const prepared: PreparedUpload = await ctx.runMutation(
+				internal.attachmentInternals.prepareUpload,
+				{
+					todoId,
+					fileName,
+					contentType,
+					size,
+				},
+			);
 
-		const uploadUrl = await createUploadUrl(
-			prepared.objectKey,
-			prepared.contentType,
-			prepared.size,
-		);
+			const uploadUrl = await createUploadUrl(
+				prepared.objectKey,
+				prepared.contentType,
+				prepared.size,
+			);
 
-		return {
-			uploadUrl,
-			objectKey: prepared.objectKey,
-			fileName: prepared.fileName,
-			contentType: prepared.contentType,
-			size: prepared.size,
-		};
+			return {
+				uploadUrl,
+				objectKey: prepared.objectKey,
+				fileName: prepared.fileName,
+				contentType: prepared.contentType,
+				size: prepared.size,
+			};
+		} catch (error) {
+			const message =
+				error instanceof Error ? error.message : "Upload URL generation failed";
+			throw new Error(`Attachment upload failed: ${message}`);
+		}
 	},
 });
 
