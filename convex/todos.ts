@@ -13,6 +13,29 @@ const priorityValidator = v.union(
 	v.literal("high"),
 );
 
+function normalizeTodoLink(raw?: string) {
+	const trimmed = raw?.trim();
+	if (!trimmed) return undefined;
+
+	const candidate =
+		trimmed.startsWith("http://") || trimmed.startsWith("https://")
+			? trimmed
+			: `https://${trimmed}`;
+
+	let url: URL;
+	try {
+		url = new URL(candidate);
+	} catch {
+		throw new Error("Todo link must be a valid URL");
+	}
+
+	if (!["http:", "https:"].includes(url.protocol)) {
+		throw new Error("Todo link must start with http:// or https://");
+	}
+
+	return url.toString();
+}
+
 export const listByProject = query({
 	args: {
 		token: v.string(),
@@ -64,21 +87,24 @@ export const create = mutation({
 		projectId: v.id("projects"),
 		title: v.string(),
 		description: v.optional(v.string()),
+		link: v.optional(v.string()),
 		status: v.optional(statusValidator),
 		priority: v.optional(priorityValidator),
 	},
 	handler: async (
 		ctx,
-		{ token, projectId, title, description, status, priority },
+		{ token, projectId, title, description, link, status, priority },
 	) => {
 		const user = await requireUser(ctx, token);
 		const trimmed = title.trim();
+		const normalizedLink = normalizeTodoLink(link);
 		if (!trimmed) throw new Error("Title is required");
 
 		const todoId = await ctx.db.insert("todos", {
 			projectId,
 			title: trimmed,
 			description: description ?? "",
+			link: normalizedLink,
 			status: status ?? "todo",
 			priority: priority ?? "medium",
 			createdBy: user._id,
@@ -103,12 +129,13 @@ export const update = mutation({
 		todoId: v.id("todos"),
 		title: v.optional(v.string()),
 		description: v.optional(v.string()),
+		link: v.optional(v.string()),
 		status: v.optional(statusValidator),
 		priority: v.optional(priorityValidator),
 	},
 	handler: async (
 		ctx,
-		{ token, todoId, title, description, status, priority },
+		{ token, todoId, title, description, link, status, priority },
 	) => {
 		const user = await requireUser(ctx, token);
 		const todo = await ctx.db.get(todoId);
@@ -124,6 +151,16 @@ export const update = mutation({
 		if (description !== undefined && description !== todo.description) {
 			patch.description = description;
 			changes.push(`description updated`);
+		}
+		if (link !== undefined) {
+			const normalizedLink = normalizeTodoLink(link);
+			const previousLink = (todo as { link?: string }).link;
+			if (normalizedLink !== previousLink) {
+				patch.link = normalizedLink;
+				changes.push(
+					`link: ${previousLink ?? "(empty)"} → ${normalizedLink ?? "(empty)"}`,
+				);
+			}
 		}
 		if (status !== undefined && status !== todo.status) {
 			patch.status = status;

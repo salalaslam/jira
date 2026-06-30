@@ -179,7 +179,11 @@ function ProjectsDashboard() {
 			) : (
 				<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{filtered.map((p) => (
-						<ProjectCard key={p._id} project={p} linkStatus={linkStatuses[p._id]} />
+						<ProjectCard
+							key={p._id}
+							project={p}
+							linkStatus={linkStatuses[p._id]}
+						/>
 					))}
 				</div>
 			)}
@@ -230,9 +234,7 @@ function ProjectCard({
 					</div>
 				</Link>
 				<div className="flex items-center gap-0.5">
-					{project.link && (
-						<LinkStatusBadge status={linkStatus} />
-					)}
+					{project.link && <LinkStatusBadge status={linkStatus} />}
 					{project.link && (
 						<Button
 							asChild
@@ -563,6 +565,7 @@ function QuickAddTodoDialog({
 	const { token } = useSession();
 	const create = useMutation(api.todos.create);
 	const [title, setTitle] = React.useState("");
+	const [link, setLink] = React.useState("");
 	const [priority, setPriority] = React.useState<"low" | "medium" | "high">(
 		"medium",
 	);
@@ -577,11 +580,13 @@ function QuickAddTodoDialog({
 				token,
 				projectId: project._id,
 				title,
+				link,
 				status: "todo",
 				priority,
 			});
 			toast.success("Task added");
 			setTitle("");
+			setLink("");
 			setPriority("medium");
 			onClose();
 		} catch (err) {
@@ -617,6 +622,16 @@ function QuickAddTodoDialog({
 						autoFocus
 						placeholder="What needs to be done?"
 						required
+					/>
+				</div>
+				<div className="flex flex-col gap-2">
+					<Label htmlFor="quick-link">Link (optional)</Label>
+					<Input
+						id="quick-link"
+						type="url"
+						value={link}
+						onChange={(e) => setLink(e.target.value)}
+						placeholder="https://github.com/org/repo/issues/123"
 					/>
 				</div>
 				<div className="flex flex-col gap-2">

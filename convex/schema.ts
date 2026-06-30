@@ -28,6 +28,7 @@ export default defineSchema({
 		projectId: v.id("projects"),
 		title: v.string(),
 		description: v.string(),
+		link: v.optional(v.string()),
 		status: v.union(
 			v.literal("todo"),
 			v.literal("in_progress"),
