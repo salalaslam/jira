@@ -80,22 +80,32 @@ Sign in with:
 
 Use the passwords you configured in `.env.local`.
 
-## File attachments (MinIO)
+## File attachments (S3-compatible storage)
 
-Todo attachments are stored on the MinIO (S3-compatible storage). Convex actions upload
-and download files through presigned S3 URLs, so MinIO must be reachable from
-both Convex cloud and users' browsers.
+Todo attachments are stored on MinIO (or any S3-compatible object store). Convex
+actions upload and download files through presigned URLs, so the storage endpoint
+must be reachable from Convex cloud and from your deployed app origin.
 
 ### 1. Expose MinIO publicly
 
-MinIO runs locally on the server (`127.0.0.1:9000`). Add an nginx vhost such as
-`<MINIO_HOST>` that proxies to it (see `scripts/minio-nginx.example.conf`), then
-point DNS for `<MINIO_HOST>` at the server.
+Run MinIO behind HTTPS on your server. A minimal reverse-proxy example lives in
+`scripts/minio-nginx.example.conf` — replace the placeholder hostnames and TLS
+paths before deploying.
+
+Point DNS for your public MinIO hostname at the server. If you use a CDN or
+reverse proxy in front of the origin, ensure [Convex egress IPs](https://docs.convex.dev/production/networking)
+can still reach the storage endpoint.
+
+Restrict public access to:
+
+- **Browser uploads/downloads** from your production app origin (and optionally
+  `http://localhost:3000` during local dev)
+- **Convex backend** calls (AWS SDK auth from Convex egress IPs)
 
 ### 2. Create a bucket and access key
 
-In the MinIO console (`127.0.0.1:9001` via SSH tunnel) create a bucket (e.g.
-`<your-bucket>`) and an access key scoped to that bucket.
+In the MinIO console, create a dedicated bucket and an access key scoped to
+that bucket.
 
 ### 3. Configure Convex environment variables
 
@@ -109,10 +119,14 @@ set:
 | `MINIO_ACCESS_KEY` | your access key |
 | `MINIO_SECRET_KEY` | your secret key |
 | `MINIO_BUCKET` | `<your-bucket>` |
+| `MINIO_ALLOWED_ORIGINS` | `https://<your-vercel-app>.vercel.app` |
 
 `MINIO_PUBLIC_URL` can differ from `MINIO_ENDPOINT` when Convex signs against an
 internal URL but browsers must use a public host. For a single public endpoint,
 set both to the same value.
+
+`MINIO_ALLOWED_ORIGINS` is required — comma-separate multiple origins if needed
+(e.g. production URL plus `http://localhost:3000` for local dev).
 
 Attachments are limited to **20 MB** per file.
 
