@@ -118,8 +118,10 @@ function ProjectsDashboard() {
 	const filtered = React.useMemo(() => {
 		if (!projects) return [];
 		const q = search.trim().toLowerCase();
-		if (!q) return projects;
-		return projects.filter((p) => p.name.toLowerCase().includes(q));
+		const list = q
+			? projects.filter((p) => p.name.toLowerCase().includes(q))
+			: projects;
+		return [...list].sort((a, b) => b.lastUpdatedAt - a.lastUpdatedAt);
 	}, [projects, search]);
 
 	return (
@@ -198,6 +200,7 @@ function ProjectCard({
 	project: {
 		_id: Id<"projects">;
 		_creationTime: number;
+		lastUpdatedAt: number;
 		name: string;
 		color: string;
 		link?: string;
@@ -228,8 +231,13 @@ function ProjectCard({
 					/>
 					<div className="min-w-0">
 						<div className="font-medium truncate">{project.name}</div>
-						<div className="text-xs text-muted-foreground">
-							Created {formatRelativeTime(project._creationTime)}
+						<div className="group/date text-xs text-muted-foreground">
+							<span className="group-hover/date:hidden">
+								Last updated {formatRelativeTime(project.lastUpdatedAt)}
+							</span>
+							<span className="hidden group-hover/date:inline">
+								Created {formatRelativeTime(project._creationTime)}
+							</span>
 						</div>
 					</div>
 				</Link>
