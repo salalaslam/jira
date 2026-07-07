@@ -715,13 +715,15 @@ function CreateTodoDialog({
 						</p>
 					)}
 				</div>
-				<div className="flex flex-col gap-2">
-					<Label>Status</Label>
-					<StatusButtonGroup value={status} onChange={setStatus} />
-				</div>
-				<div className="flex flex-col gap-2">
-					<Label>Priority</Label>
-					<PriorityButtonGroup value={priority} onChange={setPriority} />
+				<div className="grid gap-4 lg:grid-cols-2">
+					<div className="flex flex-col gap-2">
+						<Label>Status</Label>
+						<StatusButtonGroup value={status} onChange={setStatus} />
+					</div>
+					<div className="flex flex-col gap-2">
+						<Label>Priority</Label>
+						<PriorityButtonGroup value={priority} onChange={setPriority} />
+					</div>
 				</div>
 				<DialogFooter>
 					<Button
@@ -823,13 +825,15 @@ function EditTodoDialog({
 					/>
 				</div>
 				<TodoAttachments todoId={todo._id} />
-				<div className="flex flex-col gap-2">
-					<Label>Status</Label>
-					<StatusButtonGroup value={status} onChange={setStatus} />
-				</div>
-				<div className="flex flex-col gap-2">
-					<Label>Priority</Label>
-					<PriorityButtonGroup value={priority} onChange={setPriority} />
+				<div className="grid gap-4 lg:grid-cols-2">
+					<div className="flex flex-col gap-2">
+						<Label>Status</Label>
+						<StatusButtonGroup value={status} onChange={setStatus} />
+					</div>
+					<div className="flex flex-col gap-2">
+						<Label>Priority</Label>
+						<PriorityButtonGroup value={priority} onChange={setPriority} />
+					</div>
 				</div>
 
 				<Separator />
