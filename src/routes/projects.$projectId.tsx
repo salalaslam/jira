@@ -1,4 +1,9 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	Link,
+	useNavigate,
+	useParams,
+} from "@tanstack/react-router";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
 	ArchiveIcon,
@@ -110,9 +115,8 @@ function StatusButtonGroup({
 	onChange: (value: Status) => void;
 }) {
 	return (
-		<div
-			className="flex overflow-hidden rounded-md border border-input"
-			role="group"
+		<fieldset
+			className="flex min-w-0 overflow-hidden rounded-md border border-input p-0"
 			aria-label="Status"
 		>
 			{STATUSES.map((s, i) => (
@@ -133,7 +137,7 @@ function StatusButtonGroup({
 					{STATUS_META[s].label}
 				</Button>
 			))}
-		</div>
+		</fieldset>
 	);
 }
 
@@ -145,9 +149,8 @@ function PriorityButtonGroup({
 	onChange: (value: Priority) => void;
 }) {
 	return (
-		<div
-			className="flex overflow-hidden rounded-md border border-input"
-			role="group"
+		<fieldset
+			className="flex min-w-0 overflow-hidden rounded-md border border-input p-0"
 			aria-label="Priority"
 		>
 			{PRIORITIES.map((p, i) => (
@@ -169,7 +172,7 @@ function PriorityButtonGroup({
 					{PRIORITY_META[p].label}
 				</Button>
 			))}
-		</div>
+		</fieldset>
 	);
 }
 
@@ -186,7 +189,13 @@ function ProjectPage() {
 }
 
 function ProjectDetail() {
-	const { projectId } = useParams({ from: "/projects/$projectId" });
+	const params = useParams({ strict: false }) as {
+		projectId?: string;
+		todoId?: string;
+	};
+	const projectId = params.projectId ?? "";
+	const selectedTodoId = params.todoId;
+	const navigate = useNavigate();
 	const { token } = useSession();
 	const typedId = projectId as Id<"projects">;
 
@@ -218,6 +227,25 @@ function ProjectDetail() {
 			return true;
 		});
 	}, [todos, statusFilter, priorityFilter]);
+	const selectedTodo = React.useMemo(() => {
+		if (!todos || !selectedTodoId) return null;
+		return todos.find((t) => t._id === selectedTodoId) ?? null;
+	}, [selectedTodoId, todos]);
+
+	function openTodo(todoId: Id<"todos">) {
+		void navigate({
+			to: "/projects/$projectId/$todoId",
+			params: { projectId, todoId },
+		});
+	}
+
+	function closeTodo() {
+		void navigate({
+			to: "/projects/$projectId",
+			params: { projectId },
+			replace: true,
+		});
+	}
 
 	if (project === undefined) {
 		return (
@@ -372,7 +400,7 @@ function ProjectDetail() {
 					) : (
 						<div className="flex flex-col gap-2">
 							{filtered.map((t) => (
-								<TodoRow key={t._id} todo={t} />
+								<TodoRow key={t._id} todo={t} onOpen={() => openTodo(t._id)} />
 							))}
 						</div>
 					)}
@@ -419,15 +447,20 @@ function ProjectDetail() {
 					</div>
 				</aside>
 			</div>
+
+			<Dialog open={!!selectedTodo} onOpenChange={(open) => !open && closeTodo()}>
+				{selectedTodo && (
+					<EditTodoDialog todo={selectedTodo} onClose={closeTodo} />
+				)}
+			</Dialog>
 		</div>
 	);
 }
 
-function TodoRow({ todo }: { todo: Todo }) {
+function TodoRow({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
 	const { token } = useSession();
 	const update = useMutation(api.todos.update);
 	const archive = useMutation(api.todos.archive);
-	const [editOpen, setEditOpen] = React.useState(false);
 
 	async function setStatus(status: Status) {
 		if (!token) return;
@@ -482,7 +515,7 @@ function TodoRow({ todo }: { todo: Todo }) {
 			<div className="flex-1 min-w-0">
 				<button
 					type="button"
-					onClick={() => setEditOpen(true)}
+					onClick={onOpen}
 					className="w-full text-left"
 				>
 					<div
@@ -563,7 +596,7 @@ function TodoRow({ todo }: { todo: Todo }) {
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
-							<DropdownMenuItem onClick={() => setEditOpen(true)}>
+							<DropdownMenuItem onClick={onOpen}>
 								<PencilIcon className="h-4 w-4" />
 								Edit
 							</DropdownMenuItem>
@@ -592,10 +625,6 @@ function TodoRow({ todo }: { todo: Todo }) {
 					</DropdownMenu>
 				</div>
 			</div>
-
-			<Dialog open={editOpen} onOpenChange={setEditOpen}>
-				<EditTodoDialog todo={todo} onClose={() => setEditOpen(false)} />
-			</Dialog>
 		</div>
 	);
 }
