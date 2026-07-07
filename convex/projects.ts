@@ -44,9 +44,19 @@ export const list = query({
 					.query("todos")
 					.withIndex("by_project", (q) => q.eq("projectId", project._id))
 					.collect();
+				const activities = await ctx.db
+					.query("activities")
+					.withIndex("by_project", (q) => q.eq("projectId", project._id))
+					.collect();
 				const active = todos.filter((t) => !t.archivedAt);
+				const lastUpdatedAt = Math.max(
+					project._creationTime,
+					...todos.map((t) => t._creationTime),
+					...activities.map((a) => a._creationTime),
+				);
 				return {
 					...project,
+					lastUpdatedAt,
 					counts: {
 						total: active.length,
 						todo: active.filter((t) => t.status === "todo").length,
@@ -61,7 +71,7 @@ export const list = query({
 			if (!!a.archivedAt !== !!b.archivedAt) {
 				return a.archivedAt ? 1 : -1;
 			}
-			return b._creationTime - a._creationTime;
+			return b.lastUpdatedAt - a.lastUpdatedAt;
 		});
 	},
 });
@@ -211,18 +221,26 @@ export const checkLinkStatuses = action({
 				try {
 					const controller = new AbortController();
 					const timeout = setTimeout(() => controller.abort(), 4000);
+					const fetchOptions = {
+						redirect: "follow" as const,
+						signal: controller.signal,
+					};
 					let response: Response;
 					try {
 						response = await fetch(url, {
 							method: "HEAD",
-							redirect: "follow",
-							signal: controller.signal,
+							...fetchOptions,
 						});
+						if (!response.ok) {
+							response = await fetch(url, {
+								method: "GET",
+								...fetchOptions,
+							});
+						}
 					} catch {
 						response = await fetch(url, {
 							method: "GET",
-							redirect: "follow",
-							signal: controller.signal,
+							...fetchOptions,
 						});
 					} finally {
 						clearTimeout(timeout);
