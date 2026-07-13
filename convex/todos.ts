@@ -6,6 +6,7 @@ const statusValidator = v.union(
 	v.literal("todo"),
 	v.literal("in_progress"),
 	v.literal("done"),
+	v.literal("cancelled"),
 );
 const priorityValidator = v.union(
 	v.literal("low"),
@@ -89,15 +90,17 @@ export const create = mutation({
 		description: v.optional(v.string()),
 		link: v.optional(v.string()),
 		status: v.optional(statusValidator),
+		cancelReason: v.optional(v.string()),
 		priority: v.optional(priorityValidator),
 	},
 	handler: async (
 		ctx,
-		{ token, projectId, title, description, link, status, priority },
+		{ token, projectId, title, description, link, status, cancelReason, priority },
 	) => {
 		const user = await requireUser(ctx, token);
 		const trimmed = title.trim();
 		const normalizedLink = normalizeTodoLink(link);
+		const normalizedCancelReason = cancelReason?.trim() || undefined;
 		if (!trimmed) throw new Error("Title is required");
 
 		const todoId = await ctx.db.insert("todos", {
@@ -106,6 +109,7 @@ export const create = mutation({
 			description: description ?? "",
 			link: normalizedLink,
 			status: status ?? "todo",
+			cancelReason: status === "cancelled" ? normalizedCancelReason : undefined,
 			priority: priority ?? "medium",
 			createdBy: user._id,
 		});
@@ -131,11 +135,12 @@ export const update = mutation({
 		description: v.optional(v.string()),
 		link: v.optional(v.string()),
 		status: v.optional(statusValidator),
+		cancelReason: v.optional(v.string()),
 		priority: v.optional(priorityValidator),
 	},
 	handler: async (
 		ctx,
-		{ token, todoId, title, description, link, status, priority },
+		{ token, todoId, title, description, link, status, cancelReason, priority },
 	) => {
 		const user = await requireUser(ctx, token);
 		const todo = await ctx.db.get(todoId);
@@ -165,6 +170,22 @@ export const update = mutation({
 		if (status !== undefined && status !== todo.status) {
 			patch.status = status;
 			changes.push(`status: ${todo.status} → ${status}`);
+		}
+		const nextStatus = status ?? todo.status;
+		const previousCancelReason = todo.cancelReason;
+		if (nextStatus === "cancelled" && cancelReason !== undefined) {
+			const normalizedCancelReason = cancelReason.trim() || undefined;
+			if (normalizedCancelReason !== previousCancelReason) {
+				patch.cancelReason = normalizedCancelReason;
+				changes.push(
+					normalizedCancelReason
+						? `cancellation reason: ${normalizedCancelReason}`
+						: "cancellation reason removed",
+				);
+			}
+		} else if (nextStatus !== "cancelled" && previousCancelReason !== undefined) {
+			patch.cancelReason = undefined;
+			changes.push("cancellation reason cleared");
 		}
 		if (priority !== undefined && priority !== todo.priority) {
 			patch.priority = priority;

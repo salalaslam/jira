@@ -8,6 +8,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import {
 	ArchiveIcon,
 	ArrowLeftIcon,
+	BanIcon,
 	CheckCircle2Icon,
 	CheckIcon,
 	ChevronRightIcon,
@@ -23,7 +24,10 @@ import {
 import * as React from "react";
 import { toast } from "sonner";
 import { AuthGate } from "#/components/AuthGate";
-import { TodoAttachments, uploadFilesToTodo } from "#/components/TodoAttachments";
+import {
+	TodoAttachments,
+	uploadFilesToTodo,
+} from "#/components/TodoAttachments";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import {
@@ -58,7 +62,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { colorClassForProject } from "./index";
 
-type Status = "todo" | "in_progress" | "done";
+type Status = "todo" | "in_progress" | "done" | "cancelled";
 type Priority = "low" | "medium" | "high";
 
 type Todo = {
@@ -68,6 +72,7 @@ type Todo = {
 	description: string;
 	link?: string;
 	status: Status;
+	cancelReason?: string;
 	priority: Priority;
 	archivedAt?: number;
 };
@@ -84,6 +89,10 @@ const STATUS_META: Record<Status, { label: string; icon: React.ReactNode }> = {
 	done: {
 		label: "Done",
 		icon: <CheckCircle2Icon className="h-3.5 w-3.5 text-emerald-500" />,
+	},
+	cancelled: {
+		label: "Cancelled",
+		icon: <BanIcon className="h-3.5 w-3.5 text-rose-500" />,
 	},
 };
 
@@ -104,7 +113,7 @@ const PRIORITY_META: Record<Priority, { label: string; className: string }> = {
 	},
 };
 
-const STATUSES: Status[] = ["todo", "in_progress", "done"];
+const STATUSES: Status[] = ["todo", "in_progress", "done", "cancelled"];
 const PRIORITIES: Priority[] = ["low", "medium", "high"];
 
 function StatusButtonGroup({
@@ -356,6 +365,7 @@ function ProjectDetail() {
 								<SelectItem value="todo">Todo</SelectItem>
 								<SelectItem value="in_progress">In progress</SelectItem>
 								<SelectItem value="done">Done</SelectItem>
+								<SelectItem value="cancelled">Cancelled</SelectItem>
 							</SelectContent>
 						</Select>
 						<Select
@@ -448,7 +458,10 @@ function ProjectDetail() {
 				</aside>
 			</div>
 
-			<Dialog open={!!selectedTodo} onOpenChange={(open) => !open && closeTodo()}>
+			<Dialog
+				open={!!selectedTodo}
+				onOpenChange={(open) => !open && closeTodo()}
+			>
 				{selectedTodo && (
 					<EditTodoDialog todo={selectedTodo} onClose={closeTodo} />
 				)}
@@ -504,7 +517,9 @@ function TodoRow({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
 							? "in_progress"
 							: todo.status === "in_progress"
 								? "done"
-								: "todo";
+								: todo.status === "done"
+									? "todo"
+									: "todo";
 					void setStatus(next);
 				}}
 				className="mt-0.5 shrink-0"
@@ -513,11 +528,7 @@ function TodoRow({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
 				{STATUS_META[todo.status].icon}
 			</button>
 			<div className="flex-1 min-w-0">
-				<button
-					type="button"
-					onClick={onOpen}
-					className="w-full text-left"
-				>
+				<button type="button" onClick={onOpen} className="w-full text-left">
 					<div
 						className={cn(
 							"font-medium leading-snug",
@@ -530,6 +541,11 @@ function TodoRow({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
 					{todo.description && (
 						<div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
 							{todo.description}
+						</div>
+					)}
+					{todo.status === "cancelled" && todo.cancelReason && (
+						<div className="mt-1 text-xs text-rose-600 dark:text-rose-400 line-clamp-2">
+							Cancelled: {todo.cancelReason}
 						</div>
 					)}
 					<div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -646,6 +662,7 @@ function CreateTodoDialog({
 	const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
 	const fileInputRef = React.useRef<HTMLInputElement>(null);
 	const [status, setStatus] = React.useState<Status>("todo");
+	const [cancelReason, setCancelReason] = React.useState("");
 	const [priority, setPriority] = React.useState<Priority>("medium");
 	const [submitting, setSubmitting] = React.useState(false);
 
@@ -661,6 +678,7 @@ function CreateTodoDialog({
 				description,
 				link,
 				status,
+				cancelReason: status === "cancelled" ? cancelReason : undefined,
 				priority,
 			});
 			if (pendingFiles.length > 0) {
@@ -673,13 +691,16 @@ function CreateTodoDialog({
 				});
 			}
 			toast.success(
-				pendingFiles.length > 0 ? "Todo created with attachments" : "Todo created",
+				pendingFiles.length > 0
+					? "Todo created with attachments"
+					: "Todo created",
 			);
 			setTitle("");
 			setDescription("");
 			setLink("");
 			setPendingFiles([]);
 			setStatus("todo");
+			setCancelReason("");
 			setPriority("medium");
 			if (fileInputRef.current) fileInputRef.current.value = "";
 			onClose();
@@ -754,6 +775,20 @@ function CreateTodoDialog({
 						<PriorityButtonGroup value={priority} onChange={setPriority} />
 					</div>
 				</div>
+				{status === "cancelled" && (
+					<div className="flex flex-col gap-2">
+						<Label htmlFor="cancel-reason">
+							Cancellation reason (optional)
+						</Label>
+						<Textarea
+							id="cancel-reason"
+							value={cancelReason}
+							onChange={(e) => setCancelReason(e.target.value)}
+							rows={2}
+							placeholder="Why is this todo no longer needed?"
+						/>
+					</div>
+				)}
 				<DialogFooter>
 					<Button
 						type="button"
@@ -793,6 +828,9 @@ function EditTodoDialog({
 	const [description, setDescription] = React.useState(todo.description);
 	const [link, setLink] = React.useState(todo.link ?? "");
 	const [status, setStatus] = React.useState<Status>(todo.status);
+	const [cancelReason, setCancelReason] = React.useState(
+		todo.cancelReason ?? "",
+	);
 	const [priority, setPriority] = React.useState<Priority>(todo.priority);
 	const [submitting, setSubmitting] = React.useState(false);
 
@@ -808,6 +846,7 @@ function EditTodoDialog({
 				description,
 				link,
 				status,
+				cancelReason: status === "cancelled" ? cancelReason : undefined,
 				priority,
 			});
 			toast.success("Todo updated");
@@ -864,6 +903,20 @@ function EditTodoDialog({
 						<PriorityButtonGroup value={priority} onChange={setPriority} />
 					</div>
 				</div>
+				{status === "cancelled" && (
+					<div className="flex flex-col gap-2">
+						<Label htmlFor="cancel-reason-edit">
+							Cancellation reason (optional)
+						</Label>
+						<Textarea
+							id="cancel-reason-edit"
+							value={cancelReason}
+							onChange={(e) => setCancelReason(e.target.value)}
+							rows={3}
+							placeholder="Why is this todo no longer needed?"
+						/>
+					</div>
+				)}
 
 				<Separator />
 				<div>

@@ -33,7 +33,9 @@ export default defineSchema({
 			v.literal("todo"),
 			v.literal("in_progress"),
 			v.literal("done"),
+			v.literal("cancelled"),
 		),
+		cancelReason: v.optional(v.string()),
 		priority: v.union(
 			v.literal("low"),
 			v.literal("medium"),
