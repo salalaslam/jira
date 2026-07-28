@@ -5,6 +5,7 @@ import {
 	CheckCircle2Icon,
 	CircleIcon,
 	ExternalLinkIcon,
+	GithubIcon,
 	Loader2Icon,
 	MoreVerticalIcon,
 	PencilIcon,
@@ -204,6 +205,7 @@ function ProjectCard({
 		name: string;
 		color: string;
 		link?: string;
+		githubRepo?: string;
 		counts: { total: number; todo: number; inProgress: number; done: number };
 	};
 	linkStatus?: { ok: boolean; status?: number };
@@ -259,6 +261,25 @@ function ProjectCard({
 								onClick={(e) => e.stopPropagation()}
 							>
 								<ExternalLinkIcon className="h-4 w-4" />
+							</a>
+						</Button>
+					)}
+					{project.githubRepo && (
+						<Button
+							asChild
+							variant="ghost"
+							size="icon"
+							className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
+							title="Open GitHub repository in new tab"
+							aria-label="Open GitHub repository in new tab"
+						>
+							<a
+								href={project.githubRepo}
+								target="_blank"
+								rel="noopener noreferrer"
+								onClick={(e) => e.stopPropagation()}
+							>
+								<GithubIcon className="h-4 w-4" />
 							</a>
 						</Button>
 					)}
@@ -413,6 +434,7 @@ function CreateProjectDialog({ onClose }: { onClose: () => void }) {
 	const [name, setName] = React.useState("");
 	const [color, setColor] = React.useState("sky");
 	const [link, setLink] = React.useState("");
+	const [githubRepo, setGithubRepo] = React.useState("");
 	const [submitting, setSubmitting] = React.useState(false);
 
 	async function onSubmit(e: React.FormEvent) {
@@ -420,10 +442,11 @@ function CreateProjectDialog({ onClose }: { onClose: () => void }) {
 		if (!token) return;
 		setSubmitting(true);
 		try {
-			await create({ token, name, color, link });
+			await create({ token, name, color, link, githubRepo });
 			toast.success("Project created");
 			setName("");
 			setLink("");
+			setGithubRepo("");
 			onClose();
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : "Failed");
@@ -463,6 +486,16 @@ function CreateProjectDialog({ onClose }: { onClose: () => void }) {
 						type="url"
 						value={link}
 						onChange={(e) => setLink(e.target.value)}
+						placeholder="https://example.com"
+					/>
+				</div>
+				<div className="flex flex-col gap-2">
+					<Label htmlFor="project-github-repo">GitHub repo (optional)</Label>
+					<Input
+						id="project-github-repo"
+						type="url"
+						value={githubRepo}
+						onChange={(e) => setGithubRepo(e.target.value)}
 						placeholder="https://github.com/org/repo"
 					/>
 				</div>
@@ -489,7 +522,13 @@ function EditProjectDialog({
 	project,
 	onClose,
 }: {
-	project: { _id: Id<"projects">; name: string; color: string; link?: string };
+	project: {
+		_id: Id<"projects">;
+		name: string;
+		color: string;
+		link?: string;
+		githubRepo?: string;
+	};
 	onClose: () => void;
 }) {
 	const { token } = useSession();
@@ -497,6 +536,7 @@ function EditProjectDialog({
 	const [name, setName] = React.useState(project.name);
 	const [color, setColor] = React.useState(project.color);
 	const [link, setLink] = React.useState(project.link ?? "");
+	const [githubRepo, setGithubRepo] = React.useState(project.githubRepo ?? "");
 	const [submitting, setSubmitting] = React.useState(false);
 
 	async function onSubmit(e: React.FormEvent) {
@@ -504,7 +544,14 @@ function EditProjectDialog({
 		if (!token) return;
 		setSubmitting(true);
 		try {
-			await update({ token, projectId: project._id, name, color, link });
+			await update({
+				token,
+				projectId: project._id,
+				name,
+				color,
+				link,
+				githubRepo,
+			});
 			toast.success("Project updated");
 			onClose();
 		} catch (err) {
@@ -541,6 +588,16 @@ function EditProjectDialog({
 						type="url"
 						value={link}
 						onChange={(e) => setLink(e.target.value)}
+						placeholder="https://example.com"
+					/>
+				</div>
+				<div className="flex flex-col gap-2">
+					<Label htmlFor="edit-github-repo">GitHub repo (optional)</Label>
+					<Input
+						id="edit-github-repo"
+						type="url"
+						value={githubRepo}
+						onChange={(e) => setGithubRepo(e.target.value)}
 						placeholder="https://github.com/org/repo"
 					/>
 				</div>

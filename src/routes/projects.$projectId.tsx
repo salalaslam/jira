@@ -15,6 +15,7 @@ import {
 	CircleIcon,
 	CopyIcon,
 	ExternalLinkIcon,
+	GithubIcon,
 	Loader2Icon,
 	MoreVerticalIcon,
 	PencilIcon,
@@ -275,7 +276,8 @@ function ProjectDetail() {
 		);
 	}
 
-	const projectLink = (project as { link?: string }).link;
+	const projectLink = project.link;
+	const githubRepo = project.githubRepo;
 
 	return (
 		<div className="flex flex-col gap-6">
@@ -311,17 +313,30 @@ function ProjectDetail() {
 								)}
 							</h1>
 						</div>
-						{projectLink && (
-							<div className="ml-7 text-sm text-muted-foreground">
-								<a
-									href={projectLink}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="inline-flex items-center gap-1 hover:text-foreground"
-								>
-									{projectLink}
-									<ExternalLinkIcon className="h-3.5 w-3.5" />
-								</a>
+						{(projectLink || githubRepo) && (
+							<div className="ml-7 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+								{projectLink && (
+									<a
+										href={projectLink}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="inline-flex items-center gap-1 hover:text-foreground"
+									>
+										{projectLink}
+										<ExternalLinkIcon className="h-3.5 w-3.5" />
+									</a>
+								)}
+								{githubRepo && (
+									<a
+										href={githubRepo}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="inline-flex items-center gap-1 hover:text-foreground"
+									>
+										<GithubIcon className="h-3.5 w-3.5" />
+										{githubRepo}
+									</a>
+								)}
 							</div>
 						)}
 					</div>
@@ -331,6 +346,14 @@ function ProjectDetail() {
 								<a href={projectLink} target="_blank" rel="noopener noreferrer">
 									<ExternalLinkIcon className="h-4 w-4" />
 									Open link
+								</a>
+							</Button>
+						)}
+						{githubRepo && (
+							<Button asChild variant="outline">
+								<a href={githubRepo} target="_blank" rel="noopener noreferrer">
+									<GithubIcon className="h-4 w-4" />
+									Open GitHub
 								</a>
 							</Button>
 						)}

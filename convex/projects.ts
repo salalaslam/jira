@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { api } from "./_generated/api";
-import { action, mutation, query } from "./_generated/server";
+import {
+	action,
+	internalMutation,
+	mutation,
+	query,
+} from "./_generated/server";
 import { requireUser } from "./helpers";
 
 function normalizeProjectLink(raw?: string) {
@@ -23,6 +28,38 @@ function normalizeProjectLink(raw?: string) {
 		throw new Error("Project link must start with http:// or https://");
 	}
 
+	return url.toString();
+}
+
+function normalizeGithubRepo(raw?: string) {
+	const trimmed = raw?.trim();
+	if (!trimmed) return undefined;
+
+	const candidate =
+		trimmed.startsWith("http://") || trimmed.startsWith("https://")
+			? trimmed
+			: `https://${trimmed}`;
+
+	let url: URL;
+	try {
+		url = new URL(candidate);
+	} catch {
+		throw new Error("GitHub repo must be a valid URL");
+	}
+
+	if (!["http:", "https:"].includes(url.protocol)) {
+		throw new Error("GitHub repo must start with http:// or https://");
+	}
+
+	const hostname = url.hostname.toLowerCase();
+	if (
+		(hostname !== "github.com" && hostname !== "www.github.com") ||
+		url.port
+	) {
+		throw new Error("GitHub repo must be hosted on github.com");
+	}
+
+	url.protocol = "https:";
 	return url.toString();
 }
 
@@ -91,17 +128,20 @@ export const create = mutation({
 		name: v.string(),
 		color: v.string(),
 		link: v.optional(v.string()),
+		githubRepo: v.optional(v.string()),
 	},
-	handler: async (ctx, { token, name, color, link }) => {
+	handler: async (ctx, { token, name, color, link, githubRepo }) => {
 		const user = await requireUser(ctx, token);
 		const trimmed = name.trim();
 		const normalizedLink = normalizeProjectLink(link);
+		const normalizedGithubRepo = normalizeGithubRepo(githubRepo);
 		if (!trimmed) throw new Error("Project name is required");
 
 		const projectId = await ctx.db.insert("projects", {
 			name: trimmed,
 			color,
 			link: normalizedLink,
+			githubRepo: normalizedGithubRepo,
 			createdBy: user._id,
 		});
 
@@ -125,8 +165,12 @@ export const update = mutation({
 		name: v.optional(v.string()),
 		color: v.optional(v.string()),
 		link: v.optional(v.string()),
+		githubRepo: v.optional(v.string()),
 	},
-	handler: async (ctx, { token, projectId, name, color, link }) => {
+	handler: async (
+		ctx,
+		{ token, projectId, name, color, link, githubRepo },
+	) => {
 		const user = await requireUser(ctx, token);
 		const project = await ctx.db.get(projectId);
 		if (!project) throw new Error("Project not found");
@@ -151,6 +195,15 @@ export const update = mutation({
 				);
 			}
 		}
+		if (githubRepo !== undefined) {
+			const normalizedGithubRepo = normalizeGithubRepo(githubRepo);
+			if (normalizedGithubRepo !== project.githubRepo) {
+				patch.githubRepo = normalizedGithubRepo;
+				changes.push(
+					`githubRepo: ${project.githubRepo ?? "(empty)"} → ${normalizedGithubRepo ?? "(empty)"}`,
+				);
+			}
+		}
 
 		if (Object.keys(patch).length === 0) return;
 
@@ -163,6 +216,38 @@ export const update = mutation({
 			action: "updated",
 			details: changes.join(", "),
 		});
+	},
+});
+
+export const seedGithubRepos = internalMutation({
+	args: {
+		entries: v.array(
+			v.object({
+				name: v.string(),
+				githubRepo: v.string(),
+			}),
+		),
+	},
+	handler: async (ctx, { entries }) => {
+		const reposByProjectName = new Map(
+			entries.map(({ name, githubRepo }) => [
+				name.toLowerCase(),
+				normalizeGithubRepo(githubRepo),
+			]),
+		);
+		const projects = await ctx.db.query("projects").collect();
+		let patched = 0;
+
+		for (const project of projects) {
+			if (project.archivedAt || project.githubRepo !== undefined) continue;
+			const githubRepo = reposByProjectName.get(project.name.toLowerCase());
+			if (!githubRepo) continue;
+
+			await ctx.db.patch(project._id, { githubRepo });
+			patched += 1;
+		}
+
+		return { patched };
 	},
 });
 
