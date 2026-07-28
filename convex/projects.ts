@@ -227,8 +227,9 @@ export const seedGithubRepos = internalMutation({
 				githubRepo: v.string(),
 			}),
 		),
+		overwrite: v.optional(v.boolean()),
 	},
-	handler: async (ctx, { entries }) => {
+	handler: async (ctx, { entries, overwrite }) => {
 		const reposByProjectName = new Map(
 			entries.map(({ name, githubRepo }) => [
 				name.toLowerCase(),
@@ -239,7 +240,8 @@ export const seedGithubRepos = internalMutation({
 		let patched = 0;
 
 		for (const project of projects) {
-			if (project.archivedAt || project.githubRepo !== undefined) continue;
+			if (project.archivedAt) continue;
+			if (!overwrite && project.githubRepo !== undefined) continue;
 			const githubRepo = reposByProjectName.get(project.name.toLowerCase());
 			if (!githubRepo) continue;
 
