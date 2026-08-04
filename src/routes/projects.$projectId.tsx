@@ -120,13 +120,19 @@ const PRIORITIES: Priority[] = ["low", "medium", "high"];
 function StatusButtonGroup({
 	value,
 	onChange,
+	orientation = "horizontal",
 }: {
 	value: Status;
 	onChange: (value: Status) => void;
+	orientation?: "horizontal" | "vertical";
 }) {
+	const vertical = orientation === "vertical";
 	return (
 		<fieldset
-			className="flex min-w-0 overflow-hidden rounded-md border border-input p-0"
+			className={cn(
+				"flex min-w-0 overflow-hidden rounded-md border border-input p-0",
+				vertical && "flex-col",
+			)}
 			aria-label="Status"
 		>
 			{STATUSES.map((s, i) => (
@@ -138,7 +144,9 @@ function StatusButtonGroup({
 					aria-pressed={value === s}
 					className={cn(
 						"h-9 flex-1 rounded-none gap-1.5 text-xs",
-						i > 0 && "border-l border-input",
+						i > 0 &&
+							(vertical ? "border-t border-input" : "border-l border-input"),
+						vertical && "justify-start px-3",
 						value === s && "bg-accent text-accent-foreground",
 					)}
 					onClick={() => onChange(s)}
@@ -882,93 +890,103 @@ function EditTodoDialog({
 	}
 
 	return (
-		<DialogContent className="sm:max-w-2xl">
+		<DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-4xl">
 			<DialogHeader>
 				<DialogTitle>Edit todo</DialogTitle>
 			</DialogHeader>
 			<form onSubmit={onSubmit} className="flex flex-col gap-4">
-				<div className="flex flex-col gap-2">
-					<Label htmlFor="title-edit">Title</Label>
-					<Input
-						id="title-edit"
-						value={title}
-						onChange={(e) => setTitle(e.target.value)}
-						required
-					/>
-				</div>
-				<div className="flex flex-col gap-2">
-					<Label htmlFor="description-edit">Description</Label>
-					<Textarea
-						id="description-edit"
-						value={description}
-						onChange={(e) => setDescription(e.target.value)}
-						rows={5}
-					/>
-				</div>
-				<div className="flex flex-col gap-2">
-					<Label htmlFor="todo-link-edit">Link (optional)</Label>
-					<Input
-						id="todo-link-edit"
-						type="url"
-						value={link}
-						onChange={(e) => setLink(e.target.value)}
-						placeholder="https://github.com/org/repo/issues/123"
-					/>
-				</div>
-				<TodoAttachments todoId={todo._id} />
-				<div className="grid gap-4 lg:grid-cols-2">
-					<div className="flex flex-col gap-2">
-						<Label>Status</Label>
-						<StatusButtonGroup value={status} onChange={setStatus} />
+				<div className="grid gap-6 md:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
+					<div className="flex min-w-0 flex-col gap-4">
+						<div className="flex flex-col gap-2">
+							<Label htmlFor="title-edit">Title</Label>
+							<Input
+								id="title-edit"
+								value={title}
+								onChange={(e) => setTitle(e.target.value)}
+								required
+							/>
+						</div>
+						<div className="flex flex-1 flex-col gap-2">
+							<Label htmlFor="description-edit">Description</Label>
+							<Textarea
+								id="description-edit"
+								value={description}
+								onChange={(e) => setDescription(e.target.value)}
+								rows={12}
+								className="flex-1 resize-y"
+							/>
+						</div>
+						<div className="flex flex-col gap-2">
+							<Label htmlFor="todo-link-edit">Link (optional)</Label>
+							<Input
+								id="todo-link-edit"
+								type="url"
+								value={link}
+								onChange={(e) => setLink(e.target.value)}
+								placeholder="https://github.com/org/repo/issues/123"
+							/>
+						</div>
 					</div>
-					<div className="flex flex-col gap-2">
-						<Label>Priority</Label>
-						<PriorityButtonGroup value={priority} onChange={setPriority} />
-					</div>
-				</div>
-				{status === "cancelled" && (
-					<div className="flex flex-col gap-2">
-						<Label htmlFor="cancel-reason-edit">
-							Cancellation reason (optional)
-						</Label>
-						<Textarea
-							id="cancel-reason-edit"
-							value={cancelReason}
-							onChange={(e) => setCancelReason(e.target.value)}
-							rows={3}
-							placeholder="Why is this todo no longer needed?"
-						/>
-					</div>
-				)}
 
-				<Separator />
-				<div>
-					<h4 className="mb-2 text-sm font-medium">History</h4>
-					{activity === undefined ? (
-						<Loader2Icon className="h-4 w-4 animate-spin text-muted-foreground" />
-					) : activity.length === 0 ? (
-						<p className="text-xs text-muted-foreground">No history yet.</p>
-					) : (
-						<ul className="flex flex-col gap-1.5 max-h-48 overflow-auto">
-							{activity.map((a) => (
-								<li key={a._id} className="text-xs">
-									<span className="font-medium">
-										{a.user?.displayName ?? "Unknown"}
-									</span>{" "}
-									<span className="text-muted-foreground">{a.action}</span>
-									{a.details && (
-										<span className="text-muted-foreground">
-											{" "}
-											— {a.details}
-										</span>
-									)}
-									<span className="ml-1 text-muted-foreground">
-										· {formatRelativeTime(a._creationTime)}
-									</span>
-								</li>
-							))}
-						</ul>
-					)}
+					<div className="flex min-w-0 flex-col gap-4 md:border-l md:pl-6">
+						<TodoAttachments todoId={todo._id} />
+						<Separator />
+						<div className="flex flex-col gap-2">
+							<Label>Status</Label>
+							<StatusButtonGroup
+								value={status}
+								onChange={setStatus}
+								orientation="vertical"
+							/>
+						</div>
+						{status === "cancelled" && (
+							<div className="flex flex-col gap-2">
+								<Label htmlFor="cancel-reason-edit">
+									Cancellation reason (optional)
+								</Label>
+								<Textarea
+									id="cancel-reason-edit"
+									value={cancelReason}
+									onChange={(e) => setCancelReason(e.target.value)}
+									rows={2}
+									placeholder="Why is this todo no longer needed?"
+								/>
+							</div>
+						)}
+						<div className="flex flex-col gap-2">
+							<Label>Priority</Label>
+							<PriorityButtonGroup value={priority} onChange={setPriority} />
+						</div>
+						<Separator />
+						<div className="min-w-0">
+							<h4 className="mb-2 text-sm font-medium">History</h4>
+							{activity === undefined ? (
+								<Loader2Icon className="h-4 w-4 animate-spin text-muted-foreground" />
+							) : activity.length === 0 ? (
+								<p className="text-xs text-muted-foreground">No history yet.</p>
+							) : (
+								<ul className="flex max-h-56 flex-col gap-2 overflow-auto pr-1">
+									{activity.map((a) => (
+										<li key={a._id} className="text-xs leading-relaxed">
+											<span className="font-medium">
+												{a.user?.displayName ?? "Unknown"}
+											</span>{" "}
+											<span className="text-muted-foreground">{a.action}</span>
+											{a.details && (
+												<span className="text-muted-foreground">
+													{" "}
+													— {a.details}
+												</span>
+											)}
+											<div className="text-[10px] text-muted-foreground">
+												{formatRelativeTime(a._creationTime)}
+											</div>
+										</li>
+									))}
+								</ul>
+							)}
+						</div>
+					</div>
 				</div>
 
 				<DialogFooter>
