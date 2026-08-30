@@ -12,6 +12,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "seed": "tsx scripts/seed.ts",
+    "ticket": "tsx scripts/ticket.ts",
     "test": "vitest run",
     "format": "biome format",
     "lint": "biome lint",
