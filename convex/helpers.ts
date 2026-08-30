@@ -22,3 +22,13 @@ export async function requireUser(ctx: Ctx, token: string) {
 		displayName: user.displayName,
 	};
 }
+
+export async function requireUnlockedProject(
+	ctx: Ctx,
+	projectId: Id<"projects">,
+) {
+	const project = await ctx.db.get(projectId);
+	if (!project) throw new Error("Project not found");
+	if (project.lockedAt !== undefined) throw new Error("Project is locked");
+	return project;
+}

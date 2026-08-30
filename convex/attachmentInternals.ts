@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { requireUnlockedProject } from "./helpers";
 import {
 	assertFileSize,
 	buildObjectKey,
@@ -23,6 +24,7 @@ export const prepareUpload = internalMutation({
 	handler: async (ctx, { todoId, fileName, contentType, size }) => {
 		const todo = await ctx.db.get(todoId);
 		if (!todo) throw new Error("Todo not found");
+		await requireUnlockedProject(ctx, todo.projectId);
 
 		assertFileSize(size);
 		const objectKey = buildObjectKey(todoId, fileName);

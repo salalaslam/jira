@@ -1,11 +1,6 @@
 import { v } from "convex/values";
 import { api } from "./_generated/api";
-import {
-	action,
-	internalMutation,
-	mutation,
-	query,
-} from "./_generated/server";
+import { action, internalMutation, mutation, query } from "./_generated/server";
 import { requireUser } from "./helpers";
 
 function normalizeProjectLink(raw?: string) {
@@ -167,10 +162,7 @@ export const update = mutation({
 		link: v.optional(v.string()),
 		githubRepo: v.optional(v.string()),
 	},
-	handler: async (
-		ctx,
-		{ token, projectId, name, color, link, githubRepo },
-	) => {
+	handler: async (ctx, { token, projectId, name, color, link, githubRepo }) => {
 		const user = await requireUser(ctx, token);
 		const project = await ctx.db.get(projectId);
 		if (!project) throw new Error("Project not found");
@@ -285,6 +277,55 @@ export const unarchive = mutation({
 			entityId: projectId,
 			projectId,
 			action: "unarchived",
+		});
+	},
+});
+
+export const lock = mutation({
+	args: {
+		token: v.string(),
+		projectId: v.id("projects"),
+		message: v.optional(v.string()),
+		link: v.optional(v.string()),
+	},
+	handler: async (ctx, { token, projectId, message, link }) => {
+		const user = await requireUser(ctx, token);
+		const project = await ctx.db.get(projectId);
+		if (!project) throw new Error("Project not found");
+
+		await ctx.db.patch(projectId, {
+			lockedAt: Date.now(),
+			lockMessage: message?.trim() || undefined,
+			lockLink: normalizeProjectLink(link),
+		});
+		await ctx.db.insert("activities", {
+			userId: user._id,
+			entityType: "project",
+			entityId: projectId,
+			projectId,
+			action: "locked",
+		});
+	},
+});
+
+export const unlock = mutation({
+	args: { token: v.string(), projectId: v.id("projects") },
+	handler: async (ctx, { token, projectId }) => {
+		const user = await requireUser(ctx, token);
+		const project = await ctx.db.get(projectId);
+		if (!project) throw new Error("Project not found");
+
+		await ctx.db.patch(projectId, {
+			lockedAt: undefined,
+			lockMessage: undefined,
+			lockLink: undefined,
+		});
+		await ctx.db.insert("activities", {
+			userId: user._id,
+			entityType: "project",
+			entityId: projectId,
+			projectId,
+			action: "unlocked",
 		});
 	},
 });

@@ -31,10 +31,12 @@ type Attachment = {
 export function TodoAttachments({
 	todoId,
 	compact = false,
+	readOnly = false,
 	className,
 }: {
 	todoId: Id<"todos">;
 	compact?: boolean;
+	readOnly?: boolean;
 	className?: string;
 }) {
 	const { token } = useSession();
@@ -161,31 +163,33 @@ export function TodoAttachments({
 		<div className={cn("flex flex-col gap-2", className)}>
 			<div className="flex items-center justify-between gap-2">
 				<Label>Attachments</Label>
-				<div>
-					<Input
-						ref={inputRef}
-						type="file"
-						multiple
-						className="hidden"
-						onChange={(e) => {
-							if (e.target.files) void uploadFiles(e.target.files);
-						}}
-					/>
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						disabled={uploading}
-						onClick={() => inputRef.current?.click()}
-					>
-						{uploading ? (
-							<Loader2Icon className="h-4 w-4 animate-spin" />
-						) : (
-							<UploadIcon className="h-4 w-4" />
-						)}
-						Upload files
-					</Button>
-				</div>
+				{!readOnly && (
+					<div>
+						<Input
+							ref={inputRef}
+							type="file"
+							multiple
+							className="hidden"
+							onChange={(e) => {
+								if (e.target.files) void uploadFiles(e.target.files);
+							}}
+						/>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							disabled={uploading}
+							onClick={() => inputRef.current?.click()}
+						>
+							{uploading ? (
+								<Loader2Icon className="h-4 w-4 animate-spin" />
+							) : (
+								<UploadIcon className="h-4 w-4" />
+							)}
+							Upload files
+						</Button>
+					</div>
+				)}
 			</div>
 			<p className="text-xs text-muted-foreground">Up to 20 MB per file.</p>
 			{attachments === undefined ? (
@@ -224,21 +228,23 @@ export function TodoAttachments({
 									<DownloadIcon className="h-4 w-4" />
 								)}
 							</Button>
-							<Button
-								type="button"
-								variant="ghost"
-								size="icon"
-								className="h-7 w-7 text-destructive hover:text-destructive"
-								title="Remove"
-								disabled={removingId === attachment._id}
-								onClick={() => void deleteAttachment(attachment._id)}
-							>
-								{removingId === attachment._id ? (
-									<Loader2Icon className="h-4 w-4 animate-spin" />
-								) : (
-									<Trash2Icon className="h-4 w-4" />
-								)}
-							</Button>
+							{!readOnly && (
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon"
+									className="h-7 w-7 text-destructive hover:text-destructive"
+									title="Remove"
+									disabled={removingId === attachment._id}
+									onClick={() => void deleteAttachment(attachment._id)}
+								>
+									{removingId === attachment._id ? (
+										<Loader2Icon className="h-4 w-4 animate-spin" />
+									) : (
+										<Trash2Icon className="h-4 w-4" />
+									)}
+								</Button>
+							)}
 						</li>
 					))}
 				</ul>

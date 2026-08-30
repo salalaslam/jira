@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
-import { requireUser } from "./helpers";
+import { requireUnlockedProject, requireUser } from "./helpers";
 import {
 	assertFileSize,
 	assertObjectKeyForTodo,
@@ -78,6 +78,7 @@ export const add = mutation({
 		const user = await requireUser(ctx, token);
 		const todo = await ctx.db.get(todoId);
 		if (!todo) throw new Error("Todo not found");
+		await requireUnlockedProject(ctx, todo.projectId);
 
 		assertFileSize(size);
 		assertObjectKeyForTodo(objectKey, todoId);
@@ -119,6 +120,7 @@ export const remove = mutation({
 
 		const todo = await ctx.db.get(attachment.todoId);
 		if (!todo) throw new Error("Todo not found");
+		await requireUnlockedProject(ctx, todo.projectId);
 
 		await ctx.db.delete(attachmentId);
 		await ctx.scheduler.runAfter(

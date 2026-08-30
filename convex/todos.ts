@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireUser } from "./helpers";
+import { requireUnlockedProject, requireUser } from "./helpers";
 
 const statusValidator = v.union(
 	v.literal("todo"),
@@ -95,9 +95,19 @@ export const create = mutation({
 	},
 	handler: async (
 		ctx,
-		{ token, projectId, title, description, link, status, cancelReason, priority },
+		{
+			token,
+			projectId,
+			title,
+			description,
+			link,
+			status,
+			cancelReason,
+			priority,
+		},
 	) => {
 		const user = await requireUser(ctx, token);
+		await requireUnlockedProject(ctx, projectId);
 		const trimmed = title.trim();
 		const normalizedLink = normalizeTodoLink(link);
 		const normalizedCancelReason = cancelReason?.trim() || undefined;
@@ -145,6 +155,7 @@ export const update = mutation({
 		const user = await requireUser(ctx, token);
 		const todo = await ctx.db.get(todoId);
 		if (!todo) throw new Error("Todo not found");
+		await requireUnlockedProject(ctx, todo.projectId);
 
 		const patch: Record<string, unknown> = {};
 		const changes: string[] = [];
@@ -183,7 +194,10 @@ export const update = mutation({
 						: "cancellation reason removed",
 				);
 			}
-		} else if (nextStatus !== "cancelled" && previousCancelReason !== undefined) {
+		} else if (
+			nextStatus !== "cancelled" &&
+			previousCancelReason !== undefined
+		) {
 			patch.cancelReason = undefined;
 			changes.push("cancellation reason cleared");
 		}
@@ -212,6 +226,7 @@ export const archive = mutation({
 		const user = await requireUser(ctx, token);
 		const todo = await ctx.db.get(todoId);
 		if (!todo) throw new Error("Todo not found");
+		await requireUnlockedProject(ctx, todo.projectId);
 
 		await ctx.db.patch(todoId, { archivedAt: Date.now() });
 		await ctx.db.insert("activities", {
@@ -230,6 +245,7 @@ export const unarchive = mutation({
 		const user = await requireUser(ctx, token);
 		const todo = await ctx.db.get(todoId);
 		if (!todo) throw new Error("Todo not found");
+		await requireUnlockedProject(ctx, todo.projectId);
 
 		await ctx.db.patch(todoId, { archivedAt: undefined });
 		await ctx.db.insert("activities", {

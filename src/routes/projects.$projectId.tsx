@@ -17,6 +17,7 @@ import {
 	ExternalLinkIcon,
 	GithubIcon,
 	Loader2Icon,
+	LockIcon,
 	MoreVerticalIcon,
 	PencilIcon,
 	PlusIcon,
@@ -121,10 +122,12 @@ function StatusButtonGroup({
 	value,
 	onChange,
 	orientation = "horizontal",
+	disabled = false,
 }: {
 	value: Status;
 	onChange: (value: Status) => void;
 	orientation?: "horizontal" | "vertical";
+	disabled?: boolean;
 }) {
 	const vertical = orientation === "vertical";
 	return (
@@ -142,6 +145,7 @@ function StatusButtonGroup({
 					variant="ghost"
 					size="sm"
 					aria-pressed={value === s}
+					disabled={disabled}
 					className={cn(
 						"h-9 flex-1 rounded-none gap-1.5 text-xs",
 						i > 0 &&
@@ -162,9 +166,11 @@ function StatusButtonGroup({
 function PriorityButtonGroup({
 	value,
 	onChange,
+	disabled = false,
 }: {
 	value: Priority;
 	onChange: (value: Priority) => void;
+	disabled?: boolean;
 }) {
 	return (
 		<fieldset
@@ -178,6 +184,7 @@ function PriorityButtonGroup({
 					variant="ghost"
 					size="sm"
 					aria-pressed={value === p}
+					disabled={disabled}
 					className={cn(
 						"h-9 flex-1 rounded-none text-xs",
 						i > 0 && "border-l border-input",
@@ -191,6 +198,41 @@ function PriorityButtonGroup({
 				</Button>
 			))}
 		</fieldset>
+	);
+}
+
+function ProjectLockBanner({
+	message,
+	link,
+	compact = false,
+}: {
+	message?: string;
+	link?: string;
+	compact?: boolean;
+}) {
+	return (
+		<div
+			className={cn(
+				"flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-sm text-foreground",
+				compact ? "p-3" : "mt-4 p-4",
+			)}
+		>
+			<LockIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
+			<div className="min-w-0">
+				<p className="font-medium">{message || "This project is locked."}</p>
+				{link && (
+					<a
+						href={link}
+						target="_blank"
+						rel="noreferrer"
+						className="mt-1 inline-flex items-center gap-1 text-primary hover:underline"
+					>
+						View lock notice
+						<ExternalLinkIcon className="h-3.5 w-3.5" />
+					</a>
+				)}
+			</div>
+		</div>
 	);
 }
 
@@ -286,6 +328,7 @@ function ProjectDetail() {
 
 	const projectLink = project.link;
 	const githubRepo = project.githubRepo;
+	const isLocked = project.lockedAt !== undefined;
 
 	return (
 		<div className="flex flex-col gap-6">
@@ -365,21 +408,29 @@ function ProjectDetail() {
 								</a>
 							</Button>
 						)}
-						<Dialog open={createOpen} onOpenChange={setCreateOpen}>
-							<DialogTrigger asChild>
-								<Button>
-									<PlusIcon className="h-4 w-4" />
-									New todo
-								</Button>
-							</DialogTrigger>
-							<CreateTodoDialog
-								projectId={typedId}
-								onClose={() => setCreateOpen(false)}
-							/>
-						</Dialog>
+						{!isLocked && (
+							<Dialog open={createOpen} onOpenChange={setCreateOpen}>
+								<DialogTrigger asChild>
+									<Button>
+										<PlusIcon className="h-4 w-4" />
+										New todo
+									</Button>
+								</DialogTrigger>
+								<CreateTodoDialog
+									projectId={typedId}
+									onClose={() => setCreateOpen(false)}
+								/>
+							</Dialog>
+						)}
 					</div>
 				</div>
 			</div>
+			{isLocked && (
+				<ProjectLockBanner
+					message={project.lockMessage}
+					link={project.lockLink}
+				/>
+			)}
 
 			<div className="grid gap-6 lg:grid-cols-[1fr_320px]">
 				<div className="flex flex-col gap-4">
@@ -431,7 +482,7 @@ function ProjectDetail() {
 									? "No todos yet. Create the first one."
 									: "No todos match the current filters."}
 							</p>
-							{todos.length === 0 && (
+							{todos.length === 0 && !isLocked && (
 								<Button onClick={() => setCreateOpen(true)}>
 									<PlusIcon className="h-4 w-4" />
 									New todo
@@ -441,7 +492,12 @@ function ProjectDetail() {
 					) : (
 						<div className="flex flex-col gap-2">
 							{filtered.map((t) => (
-								<TodoRow key={t._id} todo={t} onOpen={() => openTodo(t._id)} />
+								<TodoRow
+									key={t._id}
+									todo={t}
+									locked={isLocked}
+									onOpen={() => openTodo(t._id)}
+								/>
 							))}
 						</div>
 					)}
@@ -494,20 +550,34 @@ function ProjectDetail() {
 				onOpenChange={(open) => !open && closeTodo()}
 			>
 				{selectedTodo && (
-					<EditTodoDialog todo={selectedTodo} onClose={closeTodo} />
+					<EditTodoDialog
+						todo={selectedTodo}
+						onClose={closeTodo}
+						readOnly={isLocked}
+						lockMessage={project.lockMessage}
+						lockLink={project.lockLink}
+					/>
 				)}
 			</Dialog>
 		</div>
 	);
 }
 
-function TodoRow({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
+function TodoRow({
+	todo,
+	locked,
+	onOpen,
+}: {
+	todo: Todo;
+	locked: boolean;
+	onOpen: () => void;
+}) {
 	const { token } = useSession();
 	const update = useMutation(api.todos.update);
 	const archive = useMutation(api.todos.archive);
 
 	async function setStatus(status: Status) {
-		if (!token) return;
+		if (!token || locked) return;
 		try {
 			await update({ token, todoId: todo._id, status });
 		} catch (e) {
@@ -516,7 +586,7 @@ function TodoRow({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
 	}
 
 	async function setPriority(priority: Priority) {
-		if (!token) return;
+		if (!token || locked) return;
 		try {
 			await update({ token, todoId: todo._id, priority });
 		} catch (e) {
@@ -540,24 +610,26 @@ function TodoRow({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
 
 	return (
 		<div className="group flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/30">
-			<button
-				type="button"
-				onClick={() => {
-					const next: Status =
-						todo.status === "todo"
-							? "in_progress"
-							: todo.status === "in_progress"
-								? "done"
-								: todo.status === "done"
-									? "todo"
-									: "todo";
-					void setStatus(next);
-				}}
-				className="mt-0.5 shrink-0"
-				title="Cycle status"
-			>
-				{STATUS_META[todo.status].icon}
-			</button>
+			{!locked && (
+				<button
+					type="button"
+					onClick={() => {
+						const next: Status =
+							todo.status === "todo"
+								? "in_progress"
+								: todo.status === "in_progress"
+									? "done"
+									: todo.status === "done"
+										? "todo"
+										: "todo";
+						void setStatus(next);
+					}}
+					className="mt-0.5 shrink-0"
+					title="Cycle status"
+				>
+					{STATUS_META[todo.status].icon}
+				</button>
+			)}
 			<div className="flex-1 min-w-0">
 				<button type="button" onClick={onOpen} className="w-full text-left">
 					<div
@@ -597,29 +669,31 @@ function TodoRow({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
 						<span className="truncate">{todo.link}</span>
 					</a>
 				)}
-				<TodoAttachments todoId={todo._id} compact />
+				<TodoAttachments todoId={todo._id} compact readOnly={locked} />
 			</div>
 			<div className="flex items-center gap-2">
-				<Select
-					value={todo.priority}
-					onValueChange={(v) => void setPriority(v as Priority)}
-				>
-					<SelectTrigger
-						className={cn(
-							"h-7 w-24 border-0 px-2 text-xs font-medium",
-							PRIORITY_META[todo.priority].className,
-						)}
+				{!locked && (
+					<Select
+						value={todo.priority}
+						onValueChange={(v) => void setPriority(v as Priority)}
 					>
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="high">High</SelectItem>
-						<SelectItem value="medium">Medium</SelectItem>
-						<SelectItem value="low">Low</SelectItem>
-					</SelectContent>
-				</Select>
+						<SelectTrigger
+							className={cn(
+								"h-7 w-24 border-0 px-2 text-xs font-medium",
+								PRIORITY_META[todo.priority].className,
+							)}
+						>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="high">High</SelectItem>
+							<SelectItem value="medium">Medium</SelectItem>
+							<SelectItem value="low">Low</SelectItem>
+						</SelectContent>
+					</Select>
+				)}
 				<div className="flex items-center gap-0.5">
-					{todo.status !== "done" && (
+					{!locked && todo.status !== "done" && (
 						<Button
 							type="button"
 							variant="ghost"
@@ -643,10 +717,12 @@ function TodoRow({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
-							<DropdownMenuItem onClick={onOpen}>
-								<PencilIcon className="h-4 w-4" />
-								Edit
-							</DropdownMenuItem>
+							{!locked && (
+								<DropdownMenuItem onClick={onOpen}>
+									<PencilIcon className="h-4 w-4" />
+									Edit
+								</DropdownMenuItem>
+							)}
 							<DropdownMenuItem
 								onClick={() => void copyDescription()}
 								disabled={!todo.description?.trim()}
@@ -654,20 +730,22 @@ function TodoRow({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
 								<CopyIcon className="h-4 w-4" />
 								Copy description
 							</DropdownMenuItem>
-							<DropdownMenuItem
-								onClick={async () => {
-									if (!token) return;
-									try {
-										await archive({ token, todoId: todo._id });
-										toast.success("Todo archived");
-									} catch (e) {
-										toast.error(e instanceof Error ? e.message : "Failed");
-									}
-								}}
-							>
-								<ArchiveIcon className="h-4 w-4" />
-								Archive
-							</DropdownMenuItem>
+							{!locked && (
+								<DropdownMenuItem
+									onClick={async () => {
+										if (!token) return;
+										try {
+											await archive({ token, todoId: todo._id });
+											toast.success("Todo archived");
+										} catch (e) {
+											toast.error(e instanceof Error ? e.message : "Failed");
+										}
+									}}
+								>
+									<ArchiveIcon className="h-4 w-4" />
+									Archive
+								</DropdownMenuItem>
+							)}
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</div>
@@ -842,9 +920,15 @@ function CreateTodoDialog({
 function EditTodoDialog({
 	todo,
 	onClose,
+	readOnly = false,
+	lockMessage,
+	lockLink,
 }: {
 	todo: Todo;
 	onClose: () => void;
+	readOnly?: boolean;
+	lockMessage?: string;
+	lockLink?: string;
 }) {
 	const { token } = useSession();
 	const update = useMutation(api.todos.update);
@@ -867,7 +951,7 @@ function EditTodoDialog({
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
-		if (!token) return;
+		if (!token || readOnly) return;
 		setSubmitting(true);
 		try {
 			await update({
@@ -892,8 +976,11 @@ function EditTodoDialog({
 	return (
 		<DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-4xl">
 			<DialogHeader>
-				<DialogTitle>Edit todo</DialogTitle>
+				<DialogTitle>{readOnly ? "Todo details" : "Edit todo"}</DialogTitle>
 			</DialogHeader>
+			{readOnly && (
+				<ProjectLockBanner message={lockMessage} link={lockLink} compact />
+			)}
 			<form onSubmit={onSubmit} className="flex flex-col gap-4">
 				<div className="grid gap-6 md:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
 					<div className="flex min-w-0 flex-col gap-4">
@@ -903,6 +990,7 @@ function EditTodoDialog({
 								id="title-edit"
 								value={title}
 								onChange={(e) => setTitle(e.target.value)}
+								disabled={readOnly}
 								required
 							/>
 						</div>
@@ -912,6 +1000,7 @@ function EditTodoDialog({
 								id="description-edit"
 								value={description}
 								onChange={(e) => setDescription(e.target.value)}
+								disabled={readOnly}
 								rows={12}
 								className="flex-1 resize-y"
 							/>
@@ -923,13 +1012,14 @@ function EditTodoDialog({
 								type="url"
 								value={link}
 								onChange={(e) => setLink(e.target.value)}
+								disabled={readOnly}
 								placeholder="https://github.com/org/repo/issues/123"
 							/>
 						</div>
 					</div>
 
 					<div className="flex min-w-0 flex-col gap-4 md:border-l md:pl-6">
-						<TodoAttachments todoId={todo._id} />
+						<TodoAttachments todoId={todo._id} readOnly={readOnly} />
 						<Separator />
 						<div className="flex flex-col gap-2">
 							<Label>Status</Label>
@@ -937,6 +1027,7 @@ function EditTodoDialog({
 								value={status}
 								onChange={setStatus}
 								orientation="vertical"
+								disabled={readOnly}
 							/>
 						</div>
 						{status === "cancelled" && (
@@ -948,6 +1039,7 @@ function EditTodoDialog({
 									id="cancel-reason-edit"
 									value={cancelReason}
 									onChange={(e) => setCancelReason(e.target.value)}
+									disabled={readOnly}
 									rows={2}
 									placeholder="Why is this todo no longer needed?"
 								/>
@@ -955,7 +1047,11 @@ function EditTodoDialog({
 						)}
 						<div className="flex flex-col gap-2">
 							<Label>Priority</Label>
-							<PriorityButtonGroup value={priority} onChange={setPriority} />
+							<PriorityButtonGroup
+								value={priority}
+								onChange={setPriority}
+								disabled={readOnly}
+							/>
 						</div>
 						<Separator />
 						<div className="min-w-0">
@@ -998,10 +1094,12 @@ function EditTodoDialog({
 					>
 						Cancel
 					</Button>
-					<Button type="submit" disabled={submitting || !title.trim()}>
-						{submitting && <Loader2Icon className="h-4 w-4 animate-spin" />}
-						Save
-					</Button>
+					{!readOnly && (
+						<Button type="submit" disabled={submitting || !title.trim()}>
+							{submitting && <Loader2Icon className="h-4 w-4 animate-spin" />}
+							Save
+						</Button>
+					)}
 				</DialogFooter>
 			</form>
 		</DialogContent>

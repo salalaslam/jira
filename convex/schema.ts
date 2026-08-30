@@ -22,6 +22,9 @@ export default defineSchema({
 		link: v.optional(v.string()),
 		githubRepo: v.optional(v.string()),
 		archivedAt: v.optional(v.number()),
+		lockedAt: v.optional(v.number()),
+		lockMessage: v.optional(v.string()),
+		lockLink: v.optional(v.string()),
 		createdBy: v.id("users"),
 	}).index("by_archived", ["archivedAt"]),
 
@@ -37,11 +40,7 @@ export default defineSchema({
 			v.literal("cancelled"),
 		),
 		cancelReason: v.optional(v.string()),
-		priority: v.union(
-			v.literal("low"),
-			v.literal("medium"),
-			v.literal("high"),
-		),
+		priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
 		archivedAt: v.optional(v.number()),
 		createdBy: v.id("users"),
 	})

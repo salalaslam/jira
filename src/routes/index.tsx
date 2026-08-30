@@ -7,6 +7,7 @@ import {
 	ExternalLinkIcon,
 	GithubIcon,
 	Loader2Icon,
+	LockIcon,
 	MoreVerticalIcon,
 	PencilIcon,
 	PlusIcon,
@@ -206,6 +207,7 @@ function ProjectCard({
 		color: string;
 		link?: string;
 		githubRepo?: string;
+		lockedAt?: number;
 		counts: { total: number; todo: number; inProgress: number; done: number };
 	};
 	linkStatus?: { ok: boolean; status?: number };
@@ -232,7 +234,15 @@ function ProjectCard({
 						)}
 					/>
 					<div className="min-w-0">
-						<div className="font-medium truncate">{project.name}</div>
+						<div className="flex items-center gap-1.5 font-medium">
+							<span className="truncate">{project.name}</span>
+							{project.lockedAt !== undefined && (
+								<LockIcon
+									className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+									aria-label="Project locked"
+								/>
+							)}
+						</div>
 						<div className="group/date text-xs text-muted-foreground">
 							<span className="group-hover/date:hidden">
 								Last updated {formatRelativeTime(project.lastUpdatedAt)}
@@ -283,23 +293,25 @@ function ProjectCard({
 							</a>
 						</Button>
 					)}
-					<Dialog open={quickAddOpen} onOpenChange={setQuickAddOpen}>
-						<DialogTrigger asChild>
-							<Button
-								variant="ghost"
-								size="icon"
-								className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
-								title="Quick add task"
-								aria-label="Quick add task"
-							>
-								<ZapIcon className="h-4 w-4" />
-							</Button>
-						</DialogTrigger>
-						<QuickAddTodoDialog
-							project={project}
-							onClose={() => setQuickAddOpen(false)}
-						/>
-					</Dialog>
+					{project.lockedAt === undefined && (
+						<Dialog open={quickAddOpen} onOpenChange={setQuickAddOpen}>
+							<DialogTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+									title="Quick add task"
+									aria-label="Quick add task"
+								>
+									<ZapIcon className="h-4 w-4" />
+								</Button>
+							</DialogTrigger>
+							<QuickAddTodoDialog
+								project={project}
+								onClose={() => setQuickAddOpen(false)}
+							/>
+						</Dialog>
+					)}
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Button
