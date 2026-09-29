@@ -207,7 +207,7 @@ function ChangePasswordDialog({
 							value={newPassword}
 							onChange={(e) => setNewPassword(e.target.value)}
 							autoComplete="new-password"
-							minLength={6}
+							minLength={8}
 							required
 						/>
 					</div>
@@ -219,7 +219,7 @@ function ChangePasswordDialog({
 							value={confirmPassword}
 							onChange={(e) => setConfirmPassword(e.target.value)}
 							autoComplete="new-password"
-							minLength={6}
+							minLength={8}
 							required
 						/>
 					</div>

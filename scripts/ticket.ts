@@ -229,23 +229,58 @@ function writeSessionCache(cache: SessionCache) {
 	chmodSync(SESSION_PATH, 0o600);
 }
 
-async function getToken(
+function convexSiteUrl(convexUrl: string) {
+	return convexUrl.replace(/\.convex\.cloud$/, ".convex.site");
+}
+
+// Exchanges a Better Auth session cookie for a short-lived Convex JWT.
+async function fetchConvexJwt(siteUrl: string, cookie: string) {
+	const response = await fetch(`${siteUrl}/api/auth/convex/token`, {
+		headers: { cookie },
+	});
+	if (!response.ok) return null;
+	const body = (await response.json()) as { token?: string } | null;
+	return body?.token ?? null;
+}
+
+async function signIn(siteUrl: string, username: string, password: string) {
+	const response = await fetch(`${siteUrl}/api/auth/sign-in/username`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ username, password }),
+	});
+	const cookie = response.headers
+		.getSetCookie()
+		.map((header) => header.split(";")[0])
+		.filter((pair) => pair.includes("session_token="))
+		.join("; ");
+	if (!response.ok || !cookie) {
+		throw new CliError(
+			"Login failed. Check TICKET_USERNAME and TICKET_PASSWORD, then try again.",
+		);
+	}
+	return cookie;
+}
+
+async function authenticate(
 	client: ConvexHttpClient,
 	convexUrl: string,
 	username: string,
-): Promise<string> {
+) {
+	const siteUrl = convexSiteUrl(convexUrl);
 	const cache = readSessionCache();
 	const cached = cache[convexUrl];
 	const normalizedUsername = username.trim().toLowerCase();
 
 	if (cached && cached.username === normalizedUsername) {
-		try {
-			const user = await client.query(api.auth.getMe, { token: cached.token });
-			if (user?.username === normalizedUsername) return cached.token;
-		} catch {
+		const jwt = await fetchConvexJwt(siteUrl, cached.token).catch(() => {
 			throw new CliError(
 				"Unable to validate the cached session. Check your network and Convex URL.",
 			);
+		});
+		if (jwt) {
+			client.setAuth(jwt);
+			return;
 		}
 	}
 
@@ -256,18 +291,12 @@ async function getToken(
 		);
 	}
 
-	let login: { token: string };
-	try {
-		login = await client.mutation(api.auth.login, { username, password });
-	} catch {
-		throw new CliError(
-			"Login failed. Check TICKET_USERNAME and TICKET_PASSWORD, then try again.",
-		);
-	}
-
-	cache[convexUrl] = { token: login.token, username: normalizedUsername };
+	const cookie = await signIn(siteUrl, username, password);
+	const jwt = await fetchConvexJwt(siteUrl, cookie);
+	if (!jwt) throw new CliError("Signed in, but could not get a Convex token.");
+	client.setAuth(jwt);
+	cache[convexUrl] = { token: cookie, username: normalizedUsername };
 	writeSessionCache(cache);
-	return login.token;
 }
 
 function isInvalidTodoIdError(error: unknown) {
@@ -280,12 +309,11 @@ function isInvalidTodoIdError(error: unknown) {
 
 async function getTicket(
 	client: ConvexHttpClient,
-	token: string,
 	todoId: Id<"todos">,
 ): Promise<Ticket> {
 	let ticket: Ticket | null;
 	try {
-		ticket = await client.query(api.todos.get, { token, todoId });
+		ticket = await client.query(api.todos.get, { todoId });
 	} catch (error) {
 		if (isInvalidTodoIdError(error)) {
 			throw new CliError("Not a valid ticket ID or URL.");
@@ -312,8 +340,8 @@ async function main() {
 	const convexUrl = resolveConvexUrl(options.dev);
 	const username = process.env.TICKET_USERNAME || "salal";
 	const client = new ConvexHttpClient(convexUrl);
-	const token = await getToken(client, convexUrl, username);
-	const ticket = await getTicket(client, token, todoId);
+	await authenticate(client, convexUrl, username);
+	const ticket = await getTicket(client, todoId);
 
 	if (options.command === "show") {
 		printTicket(ticket);
@@ -327,7 +355,6 @@ async function main() {
 
 	try {
 		await client.mutation(api.todos.update, {
-			token,
 			todoId,
 			status: options.status,
 			...(options.reason !== undefined
@@ -341,7 +368,7 @@ async function main() {
 		throw error;
 	}
 
-	const updatedTicket = await getTicket(client, token, todoId);
+	const updatedTicket = await getTicket(client, todoId);
 	console.log(
 		`Updated "${updatedTicket.title}": ${ticket.status} → ${updatedTicket.status}.`,
 	);

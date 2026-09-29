@@ -4,12 +4,11 @@ import { requireUser } from "./helpers";
 
 export const listForEntity = query({
 	args: {
-		token: v.string(),
 		entityType: v.union(v.literal("project"), v.literal("todo")),
 		entityId: v.string(),
 	},
-	handler: async (ctx, { token, entityType, entityId }) => {
-		await requireUser(ctx, token);
+	handler: async (ctx, { entityType, entityId }) => {
+		await requireUser(ctx);
 		const rows = await ctx.db
 			.query("activities")
 			.withIndex("by_entity", (q) =>
@@ -36,9 +35,9 @@ export const listForEntity = query({
 });
 
 export const listForProject = query({
-	args: { token: v.string(), projectId: v.id("projects") },
-	handler: async (ctx, { token, projectId }) => {
-		await requireUser(ctx, token);
+	args: { projectId: v.id("projects") },
+	handler: async (ctx, { projectId }) => {
+		await requireUser(ctx);
 		const rows = await ctx.db
 			.query("activities")
 			.withIndex("by_project", (q) => q.eq("projectId", projectId))

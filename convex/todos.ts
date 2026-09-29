@@ -1,6 +1,6 @@
-import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { requireUnlockedProject, requireUser } from "./helpers";
+import { type ObjectType, v } from "convex/values";
+import { type MutationCtx, mutation, query } from "./_generated/server";
+import { type AppUser, requireUnlockedProject, requireUser } from "./helpers";
 
 const statusValidator = v.union(
 	v.literal("todo"),
@@ -39,12 +39,11 @@ function normalizeTodoLink(raw?: string) {
 
 export const listByProject = query({
 	args: {
-		token: v.string(),
 		projectId: v.id("projects"),
 		includeArchived: v.optional(v.boolean()),
 	},
-	handler: async (ctx, { token, projectId, includeArchived }) => {
-		await requireUser(ctx, token);
+	handler: async (ctx, { projectId, includeArchived }) => {
+		await requireUser(ctx);
 		const todos = await ctx.db
 			.query("todos")
 			.withIndex("by_project", (q) => q.eq("projectId", projectId))
@@ -57,9 +56,9 @@ export const listByProject = query({
 });
 
 export const listArchived = query({
-	args: { token: v.string() },
-	handler: async (ctx, { token }) => {
-		await requireUser(ctx, token);
+	args: {},
+	handler: async (ctx, {}) => {
+		await requireUser(ctx);
 		const todos = await ctx.db.query("todos").collect();
 		const archived = todos.filter((t) => !!t.archivedAt);
 		const withProject = await Promise.all(
@@ -75,28 +74,27 @@ export const listArchived = query({
 });
 
 export const get = query({
-	args: { token: v.string(), todoId: v.id("todos") },
-	handler: async (ctx, { token, todoId }) => {
-		await requireUser(ctx, token);
+	args: { todoId: v.id("todos") },
+	handler: async (ctx, { todoId }) => {
+		await requireUser(ctx);
 		return await ctx.db.get(todoId);
 	},
 });
 
-export const create = mutation({
-	args: {
-		token: v.string(),
-		projectId: v.id("projects"),
-		title: v.string(),
-		description: v.optional(v.string()),
-		link: v.optional(v.string()),
-		status: v.optional(statusValidator),
-		cancelReason: v.optional(v.string()),
-		priority: v.optional(priorityValidator),
-	},
-	handler: async (
-		ctx,
-		{
-			token,
+const createArgs = {
+	projectId: v.id("projects"),
+	title: v.string(),
+	description: v.optional(v.string()),
+	link: v.optional(v.string()),
+	status: v.optional(statusValidator),
+	cancelReason: v.optional(v.string()),
+	priority: v.optional(priorityValidator),
+};
+
+export async function createTodoAs(
+	ctx: MutationCtx,
+	user: AppUser,
+	{
 			projectId,
 			title,
 			description,
@@ -104,126 +102,134 @@ export const create = mutation({
 			status,
 			cancelReason,
 			priority,
-		},
-	) => {
-		const user = await requireUser(ctx, token);
-		await requireUnlockedProject(ctx, projectId);
-		const trimmed = title.trim();
-		const normalizedLink = normalizeTodoLink(link);
-		const normalizedCancelReason = cancelReason?.trim() || undefined;
-		if (!trimmed) throw new Error("Title is required");
+		}: ObjectType<typeof createArgs>,
+) {
+	await requireUnlockedProject(ctx, projectId);
+	const trimmed = title.trim();
+	const normalizedLink = normalizeTodoLink(link);
+	const normalizedCancelReason = cancelReason?.trim() || undefined;
+	if (!trimmed) throw new Error("Title is required");
 
-		const todoId = await ctx.db.insert("todos", {
-			projectId,
-			title: trimmed,
-			description: description ?? "",
-			link: normalizedLink,
-			status: status ?? "todo",
-			cancelReason: status === "cancelled" ? normalizedCancelReason : undefined,
-			priority: priority ?? "medium",
-			createdBy: user._id,
-		});
+	const todoId = await ctx.db.insert("todos", {
+		projectId,
+		title: trimmed,
+		description: description ?? "",
+		link: normalizedLink,
+		status: status ?? "todo",
+		cancelReason: status === "cancelled" ? normalizedCancelReason : undefined,
+		priority: priority ?? "medium",
+		createdBy: user._id,
+	});
 
-		await ctx.db.insert("activities", {
-			userId: user._id,
-			entityType: "todo",
-			entityId: todoId,
-			projectId,
-			action: "created",
-			details: trimmed,
-		});
+	await ctx.db.insert("activities", {
+		userId: user._id,
+		entityType: "todo",
+		entityId: todoId,
+		projectId,
+		action: "created",
+		details: trimmed,
+	});
 
-		return todoId;
-	},
+	return todoId;
+}
+
+export const create = mutation({
+	args: createArgs,
+	handler: async (ctx, args) =>
+		await createTodoAs(ctx, await requireUser(ctx), args),
 });
 
+const updateArgs = {
+	todoId: v.id("todos"),
+	title: v.optional(v.string()),
+	description: v.optional(v.string()),
+	link: v.optional(v.string()),
+	status: v.optional(statusValidator),
+	cancelReason: v.optional(v.string()),
+	priority: v.optional(priorityValidator),
+};
+
+export async function updateTodoAs(
+	ctx: MutationCtx,
+	user: AppUser,
+	{ todoId, title, description, link, status, cancelReason, priority }: ObjectType<typeof updateArgs>,
+) {
+	const todo = await ctx.db.get(todoId);
+	if (!todo) throw new Error("Todo not found");
+	await requireUnlockedProject(ctx, todo.projectId);
+
+	const patch: Record<string, unknown> = {};
+	const changes: string[] = [];
+
+	if (title !== undefined && title.trim() && title.trim() !== todo.title) {
+		patch.title = title.trim();
+		changes.push(`title changed`);
+	}
+	if (description !== undefined && description !== todo.description) {
+		patch.description = description;
+		changes.push(`description updated`);
+	}
+	if (link !== undefined) {
+		const normalizedLink = normalizeTodoLink(link);
+		const previousLink = (todo as { link?: string }).link;
+		if (normalizedLink !== previousLink) {
+			patch.link = normalizedLink;
+			changes.push(
+				`link: ${previousLink ?? "(empty)"} → ${normalizedLink ?? "(empty)"}`,
+			);
+		}
+	}
+	if (status !== undefined && status !== todo.status) {
+		patch.status = status;
+		changes.push(`status: ${todo.status} → ${status}`);
+	}
+	const nextStatus = status ?? todo.status;
+	const previousCancelReason = todo.cancelReason;
+	if (nextStatus === "cancelled" && cancelReason !== undefined) {
+		const normalizedCancelReason = cancelReason.trim() || undefined;
+		if (normalizedCancelReason !== previousCancelReason) {
+			patch.cancelReason = normalizedCancelReason;
+			changes.push(
+				normalizedCancelReason
+					? `cancellation reason: ${normalizedCancelReason}`
+					: "cancellation reason removed",
+			);
+		}
+	} else if (
+		nextStatus !== "cancelled" &&
+		previousCancelReason !== undefined
+	) {
+		patch.cancelReason = undefined;
+		changes.push("cancellation reason cleared");
+	}
+	if (priority !== undefined && priority !== todo.priority) {
+		patch.priority = priority;
+		changes.push(`priority: ${todo.priority} → ${priority}`);
+	}
+
+	if (Object.keys(patch).length === 0) return;
+
+	await ctx.db.patch(todoId, patch);
+	await ctx.db.insert("activities", {
+		userId: user._id,
+		entityType: "todo",
+		entityId: todoId,
+		projectId: todo.projectId,
+		action: "updated",
+		details: changes.join(", "),
+	});
+}
+
 export const update = mutation({
-	args: {
-		token: v.string(),
-		todoId: v.id("todos"),
-		title: v.optional(v.string()),
-		description: v.optional(v.string()),
-		link: v.optional(v.string()),
-		status: v.optional(statusValidator),
-		cancelReason: v.optional(v.string()),
-		priority: v.optional(priorityValidator),
-	},
-	handler: async (
-		ctx,
-		{ token, todoId, title, description, link, status, cancelReason, priority },
-	) => {
-		const user = await requireUser(ctx, token);
-		const todo = await ctx.db.get(todoId);
-		if (!todo) throw new Error("Todo not found");
-		await requireUnlockedProject(ctx, todo.projectId);
-
-		const patch: Record<string, unknown> = {};
-		const changes: string[] = [];
-
-		if (title !== undefined && title.trim() && title.trim() !== todo.title) {
-			patch.title = title.trim();
-			changes.push(`title changed`);
-		}
-		if (description !== undefined && description !== todo.description) {
-			patch.description = description;
-			changes.push(`description updated`);
-		}
-		if (link !== undefined) {
-			const normalizedLink = normalizeTodoLink(link);
-			const previousLink = (todo as { link?: string }).link;
-			if (normalizedLink !== previousLink) {
-				patch.link = normalizedLink;
-				changes.push(
-					`link: ${previousLink ?? "(empty)"} → ${normalizedLink ?? "(empty)"}`,
-				);
-			}
-		}
-		if (status !== undefined && status !== todo.status) {
-			patch.status = status;
-			changes.push(`status: ${todo.status} → ${status}`);
-		}
-		const nextStatus = status ?? todo.status;
-		const previousCancelReason = todo.cancelReason;
-		if (nextStatus === "cancelled" && cancelReason !== undefined) {
-			const normalizedCancelReason = cancelReason.trim() || undefined;
-			if (normalizedCancelReason !== previousCancelReason) {
-				patch.cancelReason = normalizedCancelReason;
-				changes.push(
-					normalizedCancelReason
-						? `cancellation reason: ${normalizedCancelReason}`
-						: "cancellation reason removed",
-				);
-			}
-		} else if (
-			nextStatus !== "cancelled" &&
-			previousCancelReason !== undefined
-		) {
-			patch.cancelReason = undefined;
-			changes.push("cancellation reason cleared");
-		}
-		if (priority !== undefined && priority !== todo.priority) {
-			patch.priority = priority;
-			changes.push(`priority: ${todo.priority} → ${priority}`);
-		}
-
-		if (Object.keys(patch).length === 0) return;
-
-		await ctx.db.patch(todoId, patch);
-		await ctx.db.insert("activities", {
-			userId: user._id,
-			entityType: "todo",
-			entityId: todoId,
-			projectId: todo.projectId,
-			action: "updated",
-			details: changes.join(", "),
-		});
-	},
+	args: updateArgs,
+	handler: async (ctx, args) =>
+		await updateTodoAs(ctx, await requireUser(ctx), args),
 });
 
 export const archive = mutation({
-	args: { token: v.string(), todoId: v.id("todos") },
-	handler: async (ctx, { token, todoId }) => {
-		const user = await requireUser(ctx, token);
+	args: { todoId: v.id("todos") },
+	handler: async (ctx, { todoId }) => {
+		const user = await requireUser(ctx);
 		const todo = await ctx.db.get(todoId);
 		if (!todo) throw new Error("Todo not found");
 		await requireUnlockedProject(ctx, todo.projectId);
@@ -240,9 +246,9 @@ export const archive = mutation({
 });
 
 export const unarchive = mutation({
-	args: { token: v.string(), todoId: v.id("todos") },
-	handler: async (ctx, { token, todoId }) => {
-		const user = await requireUser(ctx, token);
+	args: { todoId: v.id("todos") },
+	handler: async (ctx, { todoId }) => {
+		const user = await requireUser(ctx);
 		const todo = await ctx.db.get(todoId);
 		if (!todo) throw new Error("Todo not found");
 		await requireUnlockedProject(ctx, todo.projectId);

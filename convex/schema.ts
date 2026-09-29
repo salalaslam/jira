@@ -5,9 +5,16 @@ export default defineSchema({
 	users: defineTable({
 		username: v.string(),
 		displayName: v.string(),
-		passwordHash: v.string(),
-	}).index("by_username", ["username"]),
+		// Better Auth user id (component `user` table).
+		authUserId: v.optional(v.string()),
+		// Legacy bcrypt hash; moved to Better Auth by users:migrateLegacyUsers.
+		passwordHash: v.optional(v.string()),
+	})
+		.index("by_username", ["username"])
+		.index("by_authUserId", ["authUserId"]),
 
+	// Legacy sessions from the pre-Better Auth login; emptied by
+	// users:migrateLegacyUsers. Remove once every deployment is migrated.
 	sessions: defineTable({
 		userId: v.id("users"),
 		token: v.string(),

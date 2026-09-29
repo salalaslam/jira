@@ -14,7 +14,6 @@ type PreparedUpload = {
 
 export const generateUploadUrl = action({
 	args: {
-		token: v.string(),
 		todoId: v.id("todos"),
 		fileName: v.string(),
 		contentType: v.string(),
@@ -27,9 +26,9 @@ export const generateUploadUrl = action({
 		contentType: v.string(),
 		size: v.number(),
 	}),
-	handler: async (ctx, { token, todoId, fileName, contentType, size }) => {
+	handler: async (ctx, { todoId, fileName, contentType, size }) => {
 		try {
-			await ctx.runQuery(internal.auth.requireUserForAction, { token });
+			await ctx.runQuery(internal.attachmentInternals.requireUserForAction, {});
 
 			const prepared: PreparedUpload = await ctx.runMutation(
 				internal.attachmentInternals.prepareUpload,
@@ -64,7 +63,6 @@ export const generateUploadUrl = action({
 
 export const getDownloadUrl = action({
 	args: {
-		token: v.string(),
 		attachmentId: v.id("todoAttachments"),
 	},
 	returns: v.object({
@@ -73,9 +71,9 @@ export const getDownloadUrl = action({
 	}),
 	handler: async (
 		ctx,
-		{ token, attachmentId },
+		{ attachmentId },
 	): Promise<{ downloadUrl: string; fileName: string }> => {
-		await ctx.runQuery(internal.auth.requireUserForAction, { token });
+		await ctx.runQuery(internal.attachmentInternals.requireUserForAction, {});
 
 		const attachment: {
 			objectKey: string;

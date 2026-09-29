@@ -1,26 +1,41 @@
 import type { GenericMutationCtx, GenericQueryCtx } from "convex/server";
 import type { DataModel, Id } from "./_generated/dataModel";
+import { authComponent } from "./auth";
 
 export type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>;
 
-export async function requireUser(ctx: Ctx, token: string) {
-	const session = await ctx.db
-		.query("sessions")
-		.withIndex("by_token", (q) => q.eq("token", token))
+export type AppUser = {
+	_id: Id<"users">;
+	username: string;
+	displayName: string;
+};
+
+export async function getUserByAuthId(
+	ctx: Ctx,
+	authUserId: string,
+): Promise<AppUser | null> {
+	const user = await ctx.db
+		.query("users")
+		.withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
 		.first();
-
-	if (!session || session.expiresAt < Date.now()) {
-		throw new Error("Not authenticated");
-	}
-
-	const user = await ctx.db.get(session.userId);
-	if (!user) throw new Error("User not found");
-
+	if (!user) return null;
 	return {
-		_id: user._id as Id<"users">,
+		_id: user._id,
 		username: user.username,
 		displayName: user.displayName,
 	};
+}
+
+export async function getCurrentUser(ctx: Ctx): Promise<AppUser | null> {
+	const authUser = await authComponent.safeGetAuthUser(ctx);
+	if (!authUser) return null;
+	return await getUserByAuthId(ctx, authUser._id);
+}
+
+export async function requireUser(ctx: Ctx): Promise<AppUser> {
+	const user = await getCurrentUser(ctx);
+	if (!user) throw new Error("Not authenticated");
+	return user;
 }
 
 export async function requireUnlockedProject(

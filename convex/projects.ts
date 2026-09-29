@@ -60,11 +60,10 @@ function normalizeGithubRepo(raw?: string) {
 
 export const list = query({
 	args: {
-		token: v.string(),
 		includeArchived: v.optional(v.boolean()),
 	},
-	handler: async (ctx, { token, includeArchived }) => {
-		await requireUser(ctx, token);
+	handler: async (ctx, { includeArchived }) => {
+		await requireUser(ctx);
 		const projects = await ctx.db.query("projects").collect();
 		const filtered = includeArchived
 			? projects
@@ -109,9 +108,9 @@ export const list = query({
 });
 
 export const get = query({
-	args: { token: v.string(), projectId: v.id("projects") },
-	handler: async (ctx, { token, projectId }) => {
-		await requireUser(ctx, token);
+	args: { projectId: v.id("projects") },
+	handler: async (ctx, { projectId }) => {
+		await requireUser(ctx);
 		const project = await ctx.db.get(projectId);
 		return project;
 	},
@@ -119,14 +118,13 @@ export const get = query({
 
 export const create = mutation({
 	args: {
-		token: v.string(),
 		name: v.string(),
 		color: v.string(),
 		link: v.optional(v.string()),
 		githubRepo: v.optional(v.string()),
 	},
-	handler: async (ctx, { token, name, color, link, githubRepo }) => {
-		const user = await requireUser(ctx, token);
+	handler: async (ctx, { name, color, link, githubRepo }) => {
+		const user = await requireUser(ctx);
 		const trimmed = name.trim();
 		const normalizedLink = normalizeProjectLink(link);
 		const normalizedGithubRepo = normalizeGithubRepo(githubRepo);
@@ -155,15 +153,14 @@ export const create = mutation({
 
 export const update = mutation({
 	args: {
-		token: v.string(),
 		projectId: v.id("projects"),
 		name: v.optional(v.string()),
 		color: v.optional(v.string()),
 		link: v.optional(v.string()),
 		githubRepo: v.optional(v.string()),
 	},
-	handler: async (ctx, { token, projectId, name, color, link, githubRepo }) => {
-		const user = await requireUser(ctx, token);
+	handler: async (ctx, { projectId, name, color, link, githubRepo }) => {
+		const user = await requireUser(ctx);
 		const project = await ctx.db.get(projectId);
 		if (!project) throw new Error("Project not found");
 
@@ -246,9 +243,9 @@ export const seedGithubRepos = internalMutation({
 });
 
 export const archive = mutation({
-	args: { token: v.string(), projectId: v.id("projects") },
-	handler: async (ctx, { token, projectId }) => {
-		const user = await requireUser(ctx, token);
+	args: { projectId: v.id("projects") },
+	handler: async (ctx, { projectId }) => {
+		const user = await requireUser(ctx);
 		const project = await ctx.db.get(projectId);
 		if (!project) throw new Error("Project not found");
 
@@ -264,9 +261,9 @@ export const archive = mutation({
 });
 
 export const unarchive = mutation({
-	args: { token: v.string(), projectId: v.id("projects") },
-	handler: async (ctx, { token, projectId }) => {
-		const user = await requireUser(ctx, token);
+	args: { projectId: v.id("projects") },
+	handler: async (ctx, { projectId }) => {
+		const user = await requireUser(ctx);
 		const project = await ctx.db.get(projectId);
 		if (!project) throw new Error("Project not found");
 
@@ -283,13 +280,12 @@ export const unarchive = mutation({
 
 export const lock = mutation({
 	args: {
-		token: v.string(),
 		projectId: v.id("projects"),
 		message: v.optional(v.string()),
 		link: v.optional(v.string()),
 	},
-	handler: async (ctx, { token, projectId, message, link }) => {
-		const user = await requireUser(ctx, token);
+	handler: async (ctx, { projectId, message, link }) => {
+		const user = await requireUser(ctx);
 		const project = await ctx.db.get(projectId);
 		if (!project) throw new Error("Project not found");
 
@@ -309,9 +305,9 @@ export const lock = mutation({
 });
 
 export const unlock = mutation({
-	args: { token: v.string(), projectId: v.id("projects") },
-	handler: async (ctx, { token, projectId }) => {
-		const user = await requireUser(ctx, token);
+	args: { projectId: v.id("projects") },
+	handler: async (ctx, { projectId }) => {
+		const user = await requireUser(ctx);
 		const project = await ctx.db.get(projectId);
 		if (!project) throw new Error("Project not found");
 
@@ -332,7 +328,6 @@ export const unlock = mutation({
 
 export const checkLinkStatuses = action({
 	args: {
-		token: v.string(),
 		links: v.array(
 			v.object({
 				projectId: v.id("projects"),
@@ -340,8 +335,8 @@ export const checkLinkStatuses = action({
 			}),
 		),
 	},
-	handler: async (ctx, { token, links }) => {
-		const user = await ctx.runQuery(api.auth.getMe, { token });
+	handler: async (ctx, { links }) => {
+		const user = await ctx.runQuery(api.userAccounts.me, {});
 		if (!user) throw new Error("Not authenticated");
 		const limitedLinks = links.slice(0, 50);
 		const statuses = await Promise.all(
