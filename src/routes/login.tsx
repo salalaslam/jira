@@ -26,7 +26,6 @@ export const Route = createFileRoute("/login")({
 
 // Better Auth sends MCP/OAuth sign-ins here with the authorize query string.
 function getOAuthContinueUrl() {
-	if (typeof window === "undefined") return null;
 	const params = new URLSearchParams(window.location.search);
 	if (!params.get("client_id") || !params.get("response_type")) return null;
 	return `/api/auth/mcp/authorize?${params.toString()}`;
@@ -38,7 +37,14 @@ function LoginPage() {
 	const [username, setUsername] = React.useState("");
 	const [password, setPassword] = React.useState("");
 	const [submitting, setSubmitting] = React.useState(false);
-	const [oauthContinueUrl] = React.useState(getOAuthContinueUrl);
+	const [oauthContinueUrl, setOAuthContinueUrl] = React.useState<string | null>(
+		null,
+	);
+
+	// Read after mount so server and client render the same markup.
+	React.useEffect(() => {
+		setOAuthContinueUrl(getOAuthContinueUrl());
+	}, []);
 
 	if (!isLoading && user && !oauthContinueUrl) {
 		return <Navigate to="/" />;
