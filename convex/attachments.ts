@@ -21,12 +21,11 @@ const attachmentValidator = v.object({
 
 export const listForTodo = query({
 	args: {
-		token: v.string(),
 		todoId: v.id("todos"),
 	},
 	returns: v.array(attachmentValidator),
-	handler: async (ctx, { token, todoId }) => {
-		await requireUser(ctx, token);
+	handler: async (ctx, { todoId }) => {
+		await requireUser(ctx);
 		return await ctx.db
 			.query("todoAttachments")
 			.withIndex("by_todo", (q) => q.eq("todoId", todoId))
@@ -36,22 +35,20 @@ export const listForTodo = query({
 
 export const get = query({
 	args: {
-		token: v.string(),
 		attachmentId: v.id("todoAttachments"),
 	},
-	handler: async (ctx, { token, attachmentId }) => {
-		await requireUser(ctx, token);
+	handler: async (ctx, { attachmentId }) => {
+		await requireUser(ctx);
 		return await ctx.db.get(attachmentId);
 	},
 });
 
 export const listByProject = query({
 	args: {
-		token: v.string(),
 		projectId: v.id("projects"),
 	},
-	handler: async (ctx, { token, projectId }) => {
-		await requireUser(ctx, token);
+	handler: async (ctx, { projectId }) => {
+		await requireUser(ctx);
 		const todos = await ctx.db
 			.query("todos")
 			.withIndex("by_project", (q) => q.eq("projectId", projectId))
@@ -64,7 +61,6 @@ export const listByProject = query({
 
 export const add = mutation({
 	args: {
-		token: v.string(),
 		todoId: v.id("todos"),
 		fileName: v.string(),
 		contentType: v.string(),
@@ -73,9 +69,9 @@ export const add = mutation({
 	},
 	handler: async (
 		ctx,
-		{ token, todoId, fileName, contentType, size, objectKey },
+		{ todoId, fileName, contentType, size, objectKey },
 	) => {
-		const user = await requireUser(ctx, token);
+		const user = await requireUser(ctx);
 		const todo = await ctx.db.get(todoId);
 		if (!todo) throw new Error("Todo not found");
 		await requireUnlockedProject(ctx, todo.projectId);
@@ -110,11 +106,10 @@ export const add = mutation({
 
 export const remove = mutation({
 	args: {
-		token: v.string(),
 		attachmentId: v.id("todoAttachments"),
 	},
-	handler: async (ctx, { token, attachmentId }) => {
-		const user = await requireUser(ctx, token);
+	handler: async (ctx, { attachmentId }) => {
+		const user = await requireUser(ctx);
 		const attachment = await ctx.db.get(attachmentId);
 		if (!attachment) throw new Error("Attachment not found");
 

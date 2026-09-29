@@ -78,11 +78,11 @@ function IndexPage() {
 }
 
 function ProjectsDashboard() {
-	const { token } = useSession();
+	const { user } = useSession();
 	const checkLinkStatuses = useAction(api.projects.checkLinkStatuses);
 	const projects = useQuery(
 		api.projects.list,
-		token ? { token, includeArchived: false } : "skip",
+		user ? { includeArchived: false } : "skip",
 	);
 	const [linkStatuses, setLinkStatuses] = React.useState<
 		Record<string, { ok: boolean; status?: number }>
@@ -91,7 +91,7 @@ function ProjectsDashboard() {
 	const [createOpen, setCreateOpen] = React.useState(false);
 
 	React.useEffect(() => {
-		if (!token || !projects) return;
+		if (!user || !projects) return;
 		const links = projects
 			.filter((p) => !!p.link)
 			.map((p) => ({ projectId: p._id, url: p.link as string }));
@@ -100,7 +100,7 @@ function ProjectsDashboard() {
 			return;
 		}
 		let cancelled = false;
-		void checkLinkStatuses({ token, links })
+		void checkLinkStatuses({ links })
 			.then((result) => {
 				if (cancelled) return;
 				const next: Record<string, { ok: boolean; status?: number }> = {};
@@ -115,7 +115,7 @@ function ProjectsDashboard() {
 		return () => {
 			cancelled = true;
 		};
-	}, [checkLinkStatuses, projects, token]);
+	}, [checkLinkStatuses, projects, user]);
 
 	const filtered = React.useMemo(() => {
 		if (!projects) return [];
@@ -212,7 +212,6 @@ function ProjectCard({
 	};
 	linkStatus?: { ok: boolean; status?: number };
 }) {
-	const { token } = useSession();
 	const archive = useMutation(api.projects.archive);
 	const [editOpen, setEditOpen] = React.useState(false);
 	const [quickAddOpen, setQuickAddOpen] = React.useState(false);
@@ -329,9 +328,8 @@ function ProjectCard({
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={async () => {
-									if (!token) return;
 									try {
-										await archive({ token, projectId: project._id });
+										await archive({ projectId: project._id });
 										toast.success("Project archived");
 									} catch (e) {
 										toast.error(e instanceof Error ? e.message : "Failed");
@@ -441,7 +439,6 @@ function EmptyState({
 }
 
 function CreateProjectDialog({ onClose }: { onClose: () => void }) {
-	const { token } = useSession();
 	const create = useMutation(api.projects.create);
 	const [name, setName] = React.useState("");
 	const [color, setColor] = React.useState("sky");
@@ -451,10 +448,9 @@ function CreateProjectDialog({ onClose }: { onClose: () => void }) {
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
-		if (!token) return;
 		setSubmitting(true);
 		try {
-			await create({ token, name, color, link, githubRepo });
+			await create({ name, color, link, githubRepo });
 			toast.success("Project created");
 			setName("");
 			setLink("");
@@ -543,7 +539,6 @@ function EditProjectDialog({
 	};
 	onClose: () => void;
 }) {
-	const { token } = useSession();
 	const update = useMutation(api.projects.update);
 	const [name, setName] = React.useState(project.name);
 	const [color, setColor] = React.useState(project.color);
@@ -553,11 +548,9 @@ function EditProjectDialog({
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
-		if (!token) return;
 		setSubmitting(true);
 		try {
 			await update({
-				token,
 				projectId: project._id,
 				name,
 				color,
@@ -639,7 +632,6 @@ function QuickAddTodoDialog({
 	project: { _id: Id<"projects">; name: string; color: string };
 	onClose: () => void;
 }) {
-	const { token } = useSession();
 	const create = useMutation(api.todos.create);
 	const [title, setTitle] = React.useState("");
 	const [link, setLink] = React.useState("");
@@ -650,11 +642,9 @@ function QuickAddTodoDialog({
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
-		if (!token) return;
 		setSubmitting(true);
 		try {
 			await create({
-				token,
 				projectId: project._id,
 				title,
 				link,

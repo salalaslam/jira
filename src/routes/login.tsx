@@ -24,14 +24,29 @@ export const Route = createFileRoute("/login")({
 	component: LoginPage,
 });
 
+// Better Auth sends MCP/OAuth sign-ins here with the authorize query string.
+function getOAuthContinueUrl() {
+	const params = new URLSearchParams(window.location.search);
+	if (!params.get("client_id") || !params.get("response_type")) return null;
+	return `/api/auth/mcp/authorize?${params.toString()}`;
+}
+
 function LoginPage() {
 	const { login, user, isLoading } = useSession();
 	const navigate = useNavigate();
 	const [username, setUsername] = React.useState("");
 	const [password, setPassword] = React.useState("");
 	const [submitting, setSubmitting] = React.useState(false);
+	const [oauthContinueUrl, setOAuthContinueUrl] = React.useState<string | null>(
+		null,
+	);
 
-	if (!isLoading && user) {
+	// Read after mount so server and client render the same markup.
+	React.useEffect(() => {
+		setOAuthContinueUrl(getOAuthContinueUrl());
+	}, []);
+
+	if (!isLoading && user && !oauthContinueUrl) {
 		return <Navigate to="/" />;
 	}
 
@@ -40,6 +55,10 @@ function LoginPage() {
 		setSubmitting(true);
 		try {
 			await login(username, password);
+			if (oauthContinueUrl) {
+				window.location.assign(oauthContinueUrl);
+				return;
+			}
 			toast.success(`Welcome back, ${username}`);
 			void navigate({ to: "/" });
 		} catch (err) {
@@ -60,44 +79,55 @@ function LoginPage() {
 						B
 					</div>
 					<CardTitle className="text-xl">tasks</CardTitle>
-					<CardDescription>Sign in to manage your projects</CardDescription>
+					<CardDescription>
+						{oauthContinueUrl
+							? "Sign in to connect your AI assistant"
+							: "Sign in to manage your projects"}
+					</CardDescription>
 				</CardHeader>
 				<CardContent>
-					<form onSubmit={onSubmit} className="flex flex-col gap-4">
-						<div className="flex flex-col gap-2">
-							<Label htmlFor="username">Username</Label>
-							<Input
-								id="username"
-								placeholder="alice or bob"
-								value={username}
-								onChange={(e) => setUsername(e.target.value)}
-								autoComplete="username"
-								required
-								autoFocus
-							/>
+					{oauthContinueUrl && !isLoading && user ? (
+						<div className="flex flex-col gap-3 text-center text-sm">
+							<p>
+								Signed in as <strong>{user.displayName}</strong>.
+							</p>
+							<Button onClick={() => window.location.assign(oauthContinueUrl)}>
+								Continue
+							</Button>
 						</div>
-						<div className="flex flex-col gap-2">
-							<Label htmlFor="password">Password</Label>
-							<Input
-								id="password"
-								type="password"
-								value={password}
-								onChange={(e) => setPassword(e.target.value)}
-								autoComplete="current-password"
-								required
-							/>
-						</div>
-						<Button type="submit" disabled={submitting} className="mt-2">
-							{submitting && <Loader2Icon className="h-4 w-4 animate-spin" />}
-							Sign in
-						</Button>
-					</form>
+					) : (
+						<form onSubmit={onSubmit} className="flex flex-col gap-4">
+							<div className="flex flex-col gap-2">
+								<Label htmlFor="username">Username</Label>
+								<Input
+									id="username"
+									placeholder="username"
+									value={username}
+									onChange={(e) => setUsername(e.target.value)}
+									autoComplete="username"
+									required
+									autoFocus
+								/>
+							</div>
+							<div className="flex flex-col gap-2">
+								<Label htmlFor="password">Password</Label>
+								<Input
+									id="password"
+									type="password"
+									value={password}
+									onChange={(e) => setPassword(e.target.value)}
+									autoComplete="current-password"
+									required
+								/>
+							</div>
+							<Button type="submit" disabled={submitting} className="mt-2">
+								{submitting && <Loader2Icon className="h-4 w-4 animate-spin" />}
+								Sign in
+							</Button>
+						</form>
+					)}
 					<p className="mt-6 text-center text-xs text-muted-foreground">
-						No account yet? Run{" "}
-						<code className="rounded bg-muted px-1.5 py-0.5 font-mono">
-							pnpm seed
-						</code>{" "}
-						to create users.
+						No account yet? Ask an admin to create one.
 					</p>
 					<div className="mt-2 text-center">
 						<Link

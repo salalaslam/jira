@@ -39,10 +39,10 @@ export function TodoAttachments({
 	readOnly?: boolean;
 	className?: string;
 }) {
-	const { token } = useSession();
+	const { user } = useSession();
 	const attachments = useQuery(
 		api.attachments.listForTodo,
-		token ? { token, todoId } : "skip",
+		user ? { todoId } : "skip",
 	);
 	const generateUploadUrl = useAction(api.attachmentActions.generateUploadUrl);
 	const getDownloadUrl = useAction(api.attachmentActions.getDownloadUrl);
@@ -57,7 +57,6 @@ export function TodoAttachments({
 		React.useState<Id<"todoAttachments"> | null>(null);
 
 	async function uploadFiles(files: FileList | File[]) {
-		if (!token) return;
 		const list = Array.from(files);
 		if (list.length === 0) return;
 
@@ -65,7 +64,6 @@ export function TodoAttachments({
 		try {
 			for (const file of list) {
 				const prepared = await generateUploadUrl({
-					token,
 					todoId,
 					fileName: file.name,
 					contentType: file.type || "application/octet-stream",
@@ -85,7 +83,6 @@ export function TodoAttachments({
 				}
 
 				await addAttachment({
-					token,
 					todoId,
 					fileName: prepared.fileName,
 					contentType: prepared.contentType,
@@ -105,11 +102,9 @@ export function TodoAttachments({
 	}
 
 	async function downloadAttachment(attachment: Attachment) {
-		if (!token) return;
 		setDownloadingId(attachment._id);
 		try {
 			const { downloadUrl } = await getDownloadUrl({
-				token,
 				attachmentId: attachment._id,
 			});
 			window.open(downloadUrl, "_blank", "noopener,noreferrer");
@@ -121,10 +116,9 @@ export function TodoAttachments({
 	}
 
 	async function deleteAttachment(attachmentId: Id<"todoAttachments">) {
-		if (!token) return;
 		setRemovingId(attachmentId);
 		try {
-			await removeAttachment({ token, attachmentId });
+			await removeAttachment({ attachmentId });
 			toast.success("Attachment removed");
 		} catch (e) {
 			toast.error(e instanceof Error ? e.message : "Failed to remove");
@@ -254,17 +248,14 @@ export function TodoAttachments({
 }
 
 export async function uploadFilesToTodo({
-	token,
 	todoId,
 	files,
 	generateUploadUrl,
 	addAttachment,
 }: {
-	token: string;
 	todoId: Id<"todos">;
 	files: File[];
 	generateUploadUrl: (args: {
-		token: string;
 		todoId: Id<"todos">;
 		fileName: string;
 		contentType: string;
@@ -277,7 +268,6 @@ export async function uploadFilesToTodo({
 		size: number;
 	}>;
 	addAttachment: (args: {
-		token: string;
 		todoId: Id<"todos">;
 		fileName: string;
 		contentType: string;
@@ -287,7 +277,6 @@ export async function uploadFilesToTodo({
 }) {
 	for (const file of files) {
 		const prepared = await generateUploadUrl({
-			token,
 			todoId,
 			fileName: file.name,
 			contentType: file.type || "application/octet-stream",
@@ -307,7 +296,6 @@ export async function uploadFilesToTodo({
 		}
 
 		await addAttachment({
-			token,
 			todoId,
 			fileName: prepared.fileName,
 			contentType: prepared.contentType,

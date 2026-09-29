@@ -256,20 +256,20 @@ function ProjectDetail() {
 	const projectId = params.projectId ?? "";
 	const selectedTodoId = params.todoId;
 	const navigate = useNavigate();
-	const { token } = useSession();
+	const { user } = useSession();
 	const typedId = projectId as Id<"projects">;
 
 	const project = useQuery(
 		api.projects.get,
-		token ? { token, projectId: typedId } : "skip",
+		user ? { projectId: typedId } : "skip",
 	);
 	const todos = useQuery(
 		api.todos.listByProject,
-		token ? { token, projectId: typedId, includeArchived: false } : "skip",
+		user ? { projectId: typedId, includeArchived: false } : "skip",
 	);
 	const activity = useQuery(
 		api.activities.listForProject,
-		token ? { token, projectId: typedId } : "skip",
+		user ? { projectId: typedId } : "skip",
 	);
 
 	const [statusFilter, setStatusFilter] = React.useState<"all" | Status>("all");
@@ -572,23 +572,22 @@ function TodoRow({
 	locked: boolean;
 	onOpen: () => void;
 }) {
-	const { token } = useSession();
 	const update = useMutation(api.todos.update);
 	const archive = useMutation(api.todos.archive);
 
 	async function setStatus(status: Status) {
-		if (!token || locked) return;
+		if (locked) return;
 		try {
-			await update({ token, todoId: todo._id, status });
+			await update({ todoId: todo._id, status });
 		} catch (e) {
 			toast.error(e instanceof Error ? e.message : "Failed");
 		}
 	}
 
 	async function setPriority(priority: Priority) {
-		if (!token || locked) return;
+		if (locked) return;
 		try {
-			await update({ token, todoId: todo._id, priority });
+			await update({ todoId: todo._id, priority });
 		} catch (e) {
 			toast.error(e instanceof Error ? e.message : "Failed");
 		}
@@ -733,9 +732,8 @@ function TodoRow({
 							{!locked && (
 								<DropdownMenuItem
 									onClick={async () => {
-										if (!token) return;
 										try {
-											await archive({ token, todoId: todo._id });
+											await archive({ todoId: todo._id });
 											toast.success("Todo archived");
 										} catch (e) {
 											toast.error(e instanceof Error ? e.message : "Failed");
@@ -761,7 +759,6 @@ function CreateTodoDialog({
 	projectId: Id<"projects">;
 	onClose: () => void;
 }) {
-	const { token } = useSession();
 	const create = useMutation(api.todos.create);
 	const generateUploadUrl = useAction(api.attachmentActions.generateUploadUrl);
 	const addAttachment = useMutation(api.attachments.add);
@@ -777,11 +774,9 @@ function CreateTodoDialog({
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
-		if (!token) return;
 		setSubmitting(true);
 		try {
 			const todoId = await create({
-				token,
 				projectId,
 				title,
 				description,
@@ -792,7 +787,6 @@ function CreateTodoDialog({
 			});
 			if (pendingFiles.length > 0) {
 				await uploadFilesToTodo({
-					token,
 					todoId,
 					files: pendingFiles,
 					generateUploadUrl,
@@ -930,13 +924,11 @@ function EditTodoDialog({
 	lockMessage?: string;
 	lockLink?: string;
 }) {
-	const { token } = useSession();
+	const { user } = useSession();
 	const update = useMutation(api.todos.update);
 	const activity = useQuery(
 		api.activities.listForEntity,
-		token
-			? { token, entityType: "todo", entityId: todo._id as string }
-			: "skip",
+		user ? { entityType: "todo", entityId: todo._id as string } : "skip",
 	);
 
 	const [title, setTitle] = React.useState(todo.title);
@@ -951,11 +943,10 @@ function EditTodoDialog({
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
-		if (!token || readOnly) return;
+		if (readOnly) return;
 		setSubmitting(true);
 		try {
 			await update({
-				token,
 				todoId: todo._id,
 				title,
 				description,

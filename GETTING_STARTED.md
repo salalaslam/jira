@@ -47,14 +47,31 @@ ALICE_PASSWORD=super-secret-alice
 BOB_PASSWORD=super-secret-bob
 ```
 
-Seed the two built-in users:
+Configure Better Auth on the Convex deployment:
+
+```bash
+npx convex env set SITE_URL http://localhost:3000
+npx convex env set BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
+```
+
+Seed the two demo users:
 
 ```bash
 pnpm seed
 ```
 
-Re-running `pnpm seed` updates the user records and rotates their passwords to
-whatever is currently in `.env.local`.
+Re-running `pnpm seed` resets their passwords to whatever is currently in
+`.env.local`.
+
+To add a real account (sign-up is disabled in the app):
+
+```bash
+npx convex run users:create '{"username":"jane","displayName":"Jane"}'
+npx convex run users:setPassword '{"username":"jane"}'   # reset later
+```
+
+Both print a generated password once; pass `"password"` to choose one.
+Resetting a password signs that user out everywhere, including Claude.
 
 ## Run locally
 
@@ -137,7 +154,8 @@ Attachments are limited to **20 MB** per file.
 | `pnpm dev` | Runs the frontend on `http://localhost:3000`. |
 | `pnpm dev:convex` | Runs Convex in watch mode and regenerates types. |
 | `pnpm dev:all` | Runs frontend and Convex together. |
-| `pnpm seed` | Creates or updates the Alice and Bob accounts. |
+| `pnpm seed` | Creates the Alice and Bob accounts or resets their passwords. |
+| `pnpm ticket` | CLI to show or change a ticket's status (`--help` for usage). |
 | `pnpm build` | Builds the production app. |
 | `pnpm preview` | Previews the production build locally. |
 | `pnpm typecheck` | Runs `tsc --noEmit`. |
@@ -153,11 +171,12 @@ Attachments are limited to **20 MB** per file.
    - `VITE_CONVEX_URL` with the production Convex URL
    - `CONVEX_DEPLOY_KEY` from the Convex dashboard deploy keys section
 5. Use the default install command `pnpm install` and build command `pnpm build`.
-6. After the first production deploy, seed users against the production Convex URL:
+6. On the production Convex deployment, set `SITE_URL` to the public app URL
+   (e.g. `https://<your-vercel-app>.vercel.app`) and a fresh
+   `BETTER_AUTH_SECRET`, then create accounts with
+   `npx convex run --prod users:create '{...}'`.
 
-```bash
-pnpm seed
-```
+`scripts/deploy.sh` deploys Convex then Vercel in one step.
 
 ## Technical overview
 
@@ -196,9 +215,35 @@ scripts/
 
 ### Auth model
 
-Sessions are random tokens stored in Convex and mirrored in browser
-localStorage. Mutations and queries that require a signed-in user receive the
-token explicitly and validate it with `requireUser`.
+Auth is [Better Auth](https://better-auth.com) running inside Convex via the
+`@convex-dev/better-auth` component. Users sign in with username + password;
+public sign-up is disabled and accounts are created with `users:create`.
+
+- The web app proxies `/api/auth/*` to the Convex HTTP actions origin, so the
+  session cookie is first-party. The browser exchanges it for a short-lived
+  Convex JWT, and functions read the user with `requireUser(ctx)`.
+- App tables reference the app's own `users` table; `users.authUserId` links
+  each row to its Better Auth user.
+- Passwords are bcrypt hashes, so hashes from the pre-Better Auth system keep
+  working (`userAccounts:migrateLegacyUsers` moved them over).
+
+### MCP server (Claude connector)
+
+`/api/mcp` is a remote MCP server (Streamable HTTP) so teammates can read and
+update tickets from Claude. It is implemented in `convex/http.ts` and
+`convex/mcpTools.ts`, and proxied through the web app.
+
+- OAuth 2.1 with dynamic client registration and PKCE comes from Better Auth's
+  `mcp` plugin. Discovery documents are served at `/.well-known/*`.
+- Client registration only accepts Claude's callback URLs and loopback
+  addresses. Add others with the `MCP_ALLOWED_REDIRECT_URIS` Convex env var
+  (comma-separated).
+- Tools: `list_projects`, `list_tickets`, `get_ticket`, `create_ticket`,
+  `update_ticket`. Changes are attributed to the signed-in user and respect
+  project locks. Archiving and project admin are intentionally not exposed.
+
+See [docs/claude-connector.md](./docs/claude-connector.md) for the end-user
+setup guide.
 
 ### Activity model
 
@@ -209,6 +254,8 @@ That activity can be shown per todo or as a timeline for an entire project.
 
 1. Update the schema in `convex/schema.ts` if the data model changes.
 2. Add or update the relevant Convex query or mutation.
-3. Validate auth with `requireUser` for protected operations.
+3. Validate auth with `requireUser(ctx)` for protected operations.
 4. Write an activity row whenever a change should appear in history.
 5. Connect the UI with `useQuery` and `useMutation`.
+6. If MCP clients should have it too, add a tool in `convex/http.ts` backed by
+   an internal function in `convex/mcpTools.ts`.

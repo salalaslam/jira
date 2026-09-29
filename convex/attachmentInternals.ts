@@ -1,11 +1,16 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
-import { requireUnlockedProject } from "./helpers";
+import { requireUnlockedProject, requireUser } from "./helpers";
 import {
 	assertFileSize,
 	buildObjectKey,
 	sanitizeFileName,
 } from "./storageHelpers";
+
+export const requireUserForAction = internalQuery({
+	args: {},
+	handler: async (ctx) => await requireUser(ctx),
+});
 
 export const getForAction = internalQuery({
 	args: { attachmentId: v.id("todoAttachments") },

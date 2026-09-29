@@ -32,16 +32,13 @@ function ArchivedPage() {
 }
 
 function ArchivedView() {
-	const { token } = useSession();
+	const { user } = useSession();
 
 	const projects = useQuery(
 		api.projects.list,
-		token ? { token, includeArchived: true } : "skip",
+		user ? { includeArchived: true } : "skip",
 	);
-	const archivedTodos = useQuery(
-		api.todos.listArchived,
-		token ? { token } : "skip",
-	);
+	const archivedTodos = useQuery(api.todos.listArchived, user ? {} : "skip");
 
 	const unarchiveProject = useMutation(api.projects.unarchive);
 	const unarchiveTodo = useMutation(api.todos.unarchive);
@@ -107,9 +104,8 @@ function ArchivedView() {
 											variant="outline"
 											size="sm"
 											onClick={async () => {
-												if (!token) return;
 												try {
-													await unarchiveProject({ token, projectId: p._id });
+													await unarchiveProject({ projectId: p._id });
 													toast.success("Project restored");
 												} catch (e) {
 													toast.error(
@@ -205,9 +201,8 @@ function ArchivedView() {
 											variant="outline"
 											size="sm"
 											onClick={async () => {
-												if (!token) return;
 												try {
-													await unarchiveTodo({ token, todoId: t._id });
+													await unarchiveTodo({ todoId: t._id });
 													toast.success("Todo restored");
 												} catch (e) {
 													toast.error(

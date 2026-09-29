@@ -4,9 +4,11 @@ import {
 	FolderIcon,
 	KeyRoundIcon,
 	LogOutIcon,
+	SparklesIcon,
 } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
+import { ClaudeConnectorBanner } from "#/components/ClaudeConnectorBanner";
 import { ThemeToggle } from "#/components/ThemeToggle";
 import { Button } from "#/components/ui/button";
 import {
@@ -99,6 +101,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 											</div>
 										</DropdownMenuLabel>
 										<DropdownMenuSeparator />
+										<DropdownMenuItem asChild>
+											<Link to="/connect-claude">
+												<SparklesIcon className="h-4 w-4" />
+												Use with Claude
+											</Link>
+										</DropdownMenuItem>
 										<DropdownMenuItem
 											onSelect={() => {
 												setPasswordDialogOpen(true);
@@ -128,7 +136,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 					</div>
 				</div>
 			</header>
-			<main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+			<main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+				<ClaudeConnectorBanner />
+				{children}
+			</main>
 		</div>
 	);
 }
@@ -207,7 +218,7 @@ function ChangePasswordDialog({
 							value={newPassword}
 							onChange={(e) => setNewPassword(e.target.value)}
 							autoComplete="new-password"
-							minLength={6}
+							minLength={8}
 							required
 						/>
 					</div>
@@ -219,7 +230,7 @@ function ChangePasswordDialog({
 							value={confirmPassword}
 							onChange={(e) => setConfirmPassword(e.target.value)}
 							autoComplete="new-password"
-							minLength={6}
+							minLength={8}
 							required
 						/>
 					</div>

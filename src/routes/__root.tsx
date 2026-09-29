@@ -1,8 +1,9 @@
+import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { ConvexProvider } from "convex/react";
 import { Toaster } from "sonner";
+import { convexAuthClient } from "#/lib/auth-client";
 import { convex } from "#/lib/convex";
 import { SessionProvider } from "#/lib/session";
 import { ThemeProvider, themeInitScript, useTheme } from "#/lib/theme";
@@ -35,12 +36,15 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			</head>
 			<body className="h-full bg-background text-foreground antialiased">
 				<ThemeProvider>
-					<ConvexProvider client={convex}>
+					<ConvexBetterAuthProvider
+						client={convex}
+						authClient={convexAuthClient}
+					>
 						<SessionProvider>
 							{children}
 							<ThemeAwareToaster />
 						</SessionProvider>
-					</ConvexProvider>
+					</ConvexBetterAuthProvider>
 				</ThemeProvider>
 				{import.meta.env.DEV && (
 					<TanStackDevtools
